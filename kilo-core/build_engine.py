@@ -1,4 +1,4 @@
-import base64, ast, io, textwrap
+﻿import base64, ast, io, textwrap
 
 SERVER = textwrap.dedent("""
 import sys, os, json, time, threading, queue, urllib.request, re
@@ -44,7 +44,7 @@ def engine_main():
     while True:
         rid, tname, targs = CMDS.get()
         try:
-            out = relay_tool(tname, targs)
+            out = raw_tool(tname, targs)
             RESULTS[rid] = (True, out)
         except Exception as e:
             RESULTS[rid] = (False, str(e)[:200])

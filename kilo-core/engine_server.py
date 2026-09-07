@@ -41,7 +41,7 @@ def engine_main():
     while True:
         rid, tname, targs = CMDS.get()
         try:
-            out = relay_tool(tname, targs)
+            out = raw_tool(tname, targs)
             RESULTS[rid] = (True, out)
         except Exception as e:
             RESULTS[rid] = (False, str(e)[:200])

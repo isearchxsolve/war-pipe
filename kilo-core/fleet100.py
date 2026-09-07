@@ -3,9 +3,11 @@ import subprocess,sys; subprocess.run([...clone...]); import fleet100; fleet100.
 """
 import threading, time, subprocess, sys
 
+TUNNEL = None
+
 
 def _reclone():
-    subprocess.run(['bash', '-lc', 'rm -rf /kaggle/working/war-pipe /kaggle/working/kilo-core; cd /kaggle/working && git clone --depth 1 https://github.com/isearchxsolve/kilo-core.git && git clone --depth 1 https://github.com/isearchxsolve/war-pipe.git'], capture_output=True)
+    subprocess.run(['bash', '-lc', 'rm -rf /kaggle/working/kilo-core; cd /kaggle/working && git clone --depth 1 https://github.com/isearchxsolve/kilo-core.git'], capture_output=True)
     if '/kaggle/working/kilo-core' not in sys.path:
         sys.path.insert(0, '/kaggle/working/kilo-core')
 
@@ -13,7 +15,10 @@ def _reclone():
 def deploy(seat='SEAT-A', squads=None, per=10):
     _reclone()
     from kilo_hands import Hands, KiloChannel
-    hands = Hands()
+    if TUNNEL:
+        hands = Hands(tunnel_url=TUNNEL)
+    else:
+        hands = Hands()
     kc = KiloChannel('ARMY', hands)
     kc.speak(seat + ' wired: door live, soldiers deploying')
     if squads is None:
