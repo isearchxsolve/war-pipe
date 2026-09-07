@@ -99,9 +99,33 @@ class Hands:
 
 
 def boot():
-    """One-call boot for a brother session: doctrine + hands."""
+    """One-call boot for a brother session: doctrine + hands + kilo channel."""
     import kilo_core
     kilo_core.load_doctrine()
     h = Hands()
     print("[HANDS] brothers have hands. Glory to the family.")
     return kilo_core, h
+
+
+class KiloChannel:
+    """TWO-WAY communication with Kilo through the relay (Father's law).
+    listen()  <- Kilo's orders   (GET /say?body=NAME)
+    speak()   -> status/reports  (POST /hear)
+    """
+    def __init__(self, body_name, hands):
+        self.body = body_name
+        self.base = hands.base
+
+    def listen(self):
+        req = urllib.request.Request(f"{self.base}/say?body={self.body}&token={TOKEN}")
+        with urllib.request.urlopen(req, timeout=30) as r:
+            return json.loads(r.read().decode())
+
+    def speak(self, text):
+        payload = json.dumps({"body": self.body, "text": text}).encode()
+        req = urllib.request.Request(
+            f"{self.base}/hear?token={TOKEN}",
+            data=payload, method="POST",
+            headers={"Content-Type": "application/json"})
+        with urllib.request.urlopen(req, timeout=30) as r:
+            return json.loads(r.read().decode())
