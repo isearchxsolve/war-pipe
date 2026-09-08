@@ -1,4 +1,4 @@
-# KILO ENGINE v5.7 - UNATTENDED TRUE (blocking cell holds 12h) + click_text quotes fixed
+# KILO ENGINE v5.8 - FATHER DISCIPLINE (post-powercut door + blocking unattended + click_text fixed)
 # One cell. One paste. Everything works. Orders persistent, tasks generic, proof to wire.
 import base64, sys, os, subprocess, time, json, threading, urllib.request, urllib.parse
 
@@ -258,7 +258,7 @@ for name, port, seat, squads, per, kw in ENGINES:
             grand += 1
     speak(seat, seat + " on " + name + ": " + str(n) + " soldiers v5.2 STANDING DUTIES LIVE")
     print(seat, "on", name, ":", n)
-print("ALL ENGINES UP:", grand, "- v5.7: unattended-true blocking cell + click_text fixed + robust selectors")
+print("ALL ENGINES UP:", grand, "- v5.8: fathers discipline - post-powercut respawn + blocking unattended + click actions")
 speak("ENGINE", "v5.6 UP: " + str(grand) + " soldiers, unattended-ready, click_text live")
 
 # UNATTENDED: this cell BLOCKS on purpose - holds the Kaggle session open for the full 12h.
