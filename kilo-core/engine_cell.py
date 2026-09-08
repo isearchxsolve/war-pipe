@@ -1,4 +1,4 @@
-# KILO ENGINE v5.8 - FATHER DISCIPLINE (post-powercut door + blocking unattended + click_text fixed)
+# KILO ENGINE v5.9 - CRITICAL ORDER FIX (standing tasks fire BEFORE blocking hold)
 # One cell. One paste. Everything works. Orders persistent, tasks generic, proof to wire.
 import base64, sys, os, subprocess, time, json, threading, urllib.request, urllib.parse
 
