@@ -111,9 +111,9 @@ with open("/kaggle/working/kilo_engine_server.py", "w") as f:
     f.write(SERVER)
 
 # ============ TASKS (standing orders -Father's 48h commands as executable task-scripts) ============
-JS_LI = "() => { const t=Array.from(document.querySelectorAll('li.msg-conversation-listitem, [data-conversation-id]')); const out=[]; t.slice(0,8).forEach(x=>{out.push(x.textContent.replace(/\\\\s+/g,' ').trim().substring(0,60));}); return JSON.stringify(out); }"
-JS_GMAIL = "() => { let rows=Array.from(document.querySelectorAll('tr.zA')); if(!rows.length){rows=Array.from(document.querySelectorAll('[role=main] tr, div[gh=tl] tr, table tr')).filter(r=>r.textContent.length>40&&r.textContent.length<400);} const out=[]; rows.slice(0,10).forEach(r=>{const t=r.textContent.replace(/\s+/g,' ').trim(); if(t) out.push(t.substring(0,90));}); return JSON.stringify(out.slice(0,8)); }"
-JS_NAUKRI = "() => { const t=Array.from(document.querySelectorAll('[class*=jobTitle], a.title')).map(x=>x.textContent.replace(/\\\\s+/g,' ').trim()).filter(x=>x&&x.length>10&&x.length<90); return JSON.stringify(t.slice(0,10)); }"
+JS_LI = "() => { const t=Array.from(document.querySelectorAll('li.msg-conversation-listitem, [data-conversation-id]')); const out=[]; t.slice(0,8).forEach(x=>{out.push(x.textContent.replace(/\\\\\s+/g,' ').trim().substring(0,60));}); return JSON.stringify(out); }"
+JS_GMAIL = "() => { let rows=Array.from(document.querySelectorAll('tr.zA')); if(!rows.length){rows=Array.from(document.querySelectorAll('[role=main] tr, div[gh=tl] tr, table tr')).filter(r=>r.textContent.length>40&&r.textContent.length<400);} const out=[]; rows.slice(0,10).forEach(r=>{const t=r.textContent.replace(/\\s+/g,' ').trim(); if(t) out.push(t.substring(0,90));}); return JSON.stringify(out.slice(0,8)); }"
+JS_NAUKRI = "() => { const t=Array.from(document.querySelectorAll('[class*=jobTitle], a.title')).map(x=>x.textContent.replace(/\\\\\s+/g,' ').trim()).filter(x=>x&&x.length>10&&x.length<90); return JSON.stringify(t.slice(0,10)); }"
 JS_WA = "() => { const rows=Array.from(document.querySelectorAll('#pane-side [role=row]')); const names=[]; rows.forEach(r=>{const s=r.querySelector('[title]'); if(s) names.push(s.title);}); return JSON.stringify(names.slice(0,12)); }"
 
 STANDING = {
