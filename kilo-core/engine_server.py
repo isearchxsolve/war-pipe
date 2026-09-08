@@ -23,8 +23,7 @@ def resolve_page(kw):
             return int(m.group(1))
     lines = [l for l in str(txt).splitlines() if re.match(r"\s*\d+:", l)]
     if lines:
-        m = re.match(r"\s*(\d+):", lines[0])
-        return int(m.group(1))
+        return int(re.match(r"\s*(\d+):", lines[0]).group(1))
     return 1
 
 def get_page_id(kw):
@@ -87,12 +86,8 @@ class H(BaseHTTPRequestHandler):
                     break
                 time.sleep(0.5)
             ok, out = RESULTS.pop(rid, (False, "timeout"))
-            if (not ok) or ("isError" in str(out)[:80]) or ("Invalid arguments" in str(out)[:150]) or ("Required at pageId" in str(out)):
+            if (not ok) or ("Invalid arguments" in str(out)[:150]) or ("Required at pageId" in str(out)):
                 PAGE_CACHE["pageId"] = None
-                try:
-                    PAGE_CACHE["pageId"] = resolve_page(args.get("kw", PREF_KW))
-                except Exception:
-                    pass
             body = json.dumps({"ok": True, "result": str(out)}).encode()
         except Exception as e:
             body = json.dumps({"ok": False, "error": str(e)[:200]}).encode()
@@ -102,5 +97,5 @@ class H(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
-print(ENGINE_NAME, "hands-proxy up on port", PORT, "-> FATHERS CHROME via relay, kw=" + PREF_KW, flush=True)
+print(ENGINE_NAME, "hands-proxy up port", PORT, "-> FATHERS CHROME via relay", flush=True)
 ThreadingHTTPServer(("127.0.0.1", PORT), H).serve_forever()
