@@ -1,4 +1,4 @@
-# KILO ENGINE v5.3 - CLEAN FINAL (token-append fix in get())
+# KILO ENGINE v5.4 - CLEAN FINAL (constitution + token fix + write step)
 # One cell. One paste. Everything works. Orders persistent, tasks generic, proof to wire.
 import base64, sys, os, subprocess, time, json, threading, urllib.request, urllib.parse
 
@@ -239,8 +239,8 @@ for name, port, seat, squads, per, kw in ENGINES:
             grand += 1
     speak(seat, seat + " on " + name + ": " + str(n) + " soldiers v5.2 STANDING DUTIES LIVE")
     print(seat, "on", name, ":", n)
-print("ALL ENGINES UP:", grand, "- v5.2: standing duties baked + generic executor + persistent bank")
-speak("ENGINE", "v5.2 UP: " + str(grand) + " soldiers, STANDING DUTIES live")
+print("ALL ENGINES UP:", grand, "- v5.4: constitution live + standing duties + generic executor + persistent bank")
+speak("ENGINE", "v5.4 UP: " + str(grand) + " soldiers, STANDING DUTIES live")
 
 # Fire standing tasks into the bank (persisted) - leads pick up on first poll
 for sq, task in STANDING.items():
