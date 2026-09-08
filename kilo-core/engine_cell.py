@@ -1,4 +1,4 @@
-# KILO ENGINE v5.4 - CLEAN FINAL (constitution + token fix + write step)
+# KILO ENGINE v5.5 - tab pinning + gmail selector + speak retry
 # One cell. One paste. Everything works. Orders persistent, tasks generic, proof to wire.
 import base64, sys, os, subprocess, time, json, threading, urllib.request, urllib.parse
 
@@ -112,7 +112,7 @@ with open("/kaggle/working/kilo_engine_server.py", "w") as f:
 
 # ============ TASKS (standing orders -Father's 48h commands as executable task-scripts) ============
 JS_LI = "() => { const t=Array.from(document.querySelectorAll('li.msg-conversation-listitem, [data-conversation-id]')); const out=[]; t.slice(0,8).forEach(x=>{out.push(x.textContent.replace(/\\\\s+/g,' ').trim().substring(0,60));}); return JSON.stringify(out); }"
-JS_GMAIL = "() => { const rows=Array.from(document.querySelectorAll('tr.zA')).slice(0,8); const out=[]; rows.forEach(r=>{const s=r.querySelector('.yP, .zF'); const sub=r.querySelector('.bog'); out.push((s?s.textContent.trim():'?')+' :: '+(sub?sub.textContent.trim().substring(0,50):'?'));}); return JSON.stringify(out); }"
+JS_GMAIL = "() => { let rows=Array.from(document.querySelectorAll('tr.zA')); if(!rows.length){rows=Array.from(document.querySelectorAll('[role=main] tr, div[gh=tl] tr, table tr')).filter(r=>r.textContent.length>40&&r.textContent.length<400);} const out=[]; rows.slice(0,10).forEach(r=>{const t=r.textContent.replace(/\s+/g,' ').trim(); if(t) out.push(t.substring(0,90));}); return JSON.stringify(out.slice(0,8)); }"
 JS_NAUKRI = "() => { const t=Array.from(document.querySelectorAll('[class*=jobTitle], a.title')).map(x=>x.textContent.replace(/\\\\s+/g,' ').trim()).filter(x=>x&&x.length>10&&x.length<90); return JSON.stringify(t.slice(0,10)); }"
 JS_WA = "() => { const rows=Array.from(document.querySelectorAll('#pane-side [role=row]')); const names=[]; rows.forEach(r=>{const s=r.querySelector('[title]'); if(s) names.push(s.title);}); return JSON.stringify(names.slice(0,12)); }"
 
@@ -152,10 +152,13 @@ def get(p):
     return json.loads(urllib.request.urlopen(url, timeout=30).read())
 
 def speak(tag, txt):
-    try:
-        post("/say", {"body": tag, "text": txt})
-    except Exception as e:
-        print(tag, "speak-fail", str(e)[:40])
+    for attempt in range(3):
+        try:
+            post("/say", {"body": tag, "text": txt})
+            return
+        except Exception as e:
+            print(tag, "speak-fail attempt", attempt + 1, str(e)[:40])
+            time.sleep(5)
 
 def hear(sq):
     try:
@@ -178,6 +181,21 @@ for name, port, seat, squads, per, kw in ENGINES:
     subprocess.Popen([sys.executable, "/kaggle/working/kilo_engine_server.py", name, str(port), TUNNEL], env=env)
 print("engines spawning...")
 time.sleep(12)
+
+# TAB PINNING: each engine navigates its own tab once at boot - no cross-tab borrowing
+PIN = {
+    "ENGINE-1": ("https://www.linkedin.com/messaging/", "linkedin"),
+    "ENGINE-2": ("https://www.naukri.com/ai-engineer-remote-jobs", "naukri"),
+    "ENGINE-3": ("https://mail.google.com/mail/u/0/#inbox", "gmail"),
+}
+for name, port, seat, squads, per, kw in ENGINES:
+    url, kw2 = PIN[name]
+    try:
+        hand(port, "navigate", {"url": url, "kw": kw2})
+        print(name, "TAB PINNED:", url[:50])
+        speak("ENGINE", name + " tab pinned: " + url[:60])
+    except Exception as e:
+        print(name, "pin fail", str(e)[:50])
 
 DONE = set()
 
@@ -239,8 +257,8 @@ for name, port, seat, squads, per, kw in ENGINES:
             grand += 1
     speak(seat, seat + " on " + name + ": " + str(n) + " soldiers v5.2 STANDING DUTIES LIVE")
     print(seat, "on", name, ":", n)
-print("ALL ENGINES UP:", grand, "- v5.4: constitution live + standing duties + generic executor + persistent bank")
-speak("ENGINE", "v5.4 UP: " + str(grand) + " soldiers, STANDING DUTIES live")
+print("ALL ENGINES UP:", grand, "- v5.5: tab pinning + speak retry + gmail selector robust")
+speak("ENGINE", "v5.5 UP: " + str(grand) + " soldiers, STANDING DUTIES live")
 
 # Fire standing tasks into the bank (persisted) - leads pick up on first poll
 for sq, task in STANDING.items():
