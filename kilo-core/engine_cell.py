@@ -1,4 +1,4 @@
-# KILO ENGINE v5.6 - UNATTENDED-READY + real click actions + robust selectors
+# KILO ENGINE v5.7 - UNATTENDED TRUE (blocking cell holds 12h) + click_text quotes fixed
 # One cell. One paste. Everything works. Orders persistent, tasks generic, proof to wire.
 import base64, sys, os, subprocess, time, json, threading, urllib.request, urllib.parse
 
@@ -59,7 +59,7 @@ HANDS = {
     "list_pages": lambda a: ("list_pages", {}),
     "snapshot": lambda a: ("take_snapshot", {"pageId": a.get("pageId", get_page_id(a.get("kw", "")))}),
     "click": lambda a: ("click", {"uid": a.get("uid"), "pageId": a.get("pageId", get_page_id(a.get("kw", "")))}),
-    "click_text": lambda a: ("evaluate_script", {"pageId": a.get("pageId", get_page_id(a.get("kw", ""))), "function": "() => { const kw=" + json.dumps(a.get("text", "")) + '; const els=Array.from(document.querySelectorAll('a,button,[role=button],input[type=submit]')); const el=els.find(x=>new RegExp(kw,'i').test(x.textContent||x.value||'')); if(el){el.scrollIntoView({block:'center'}); el.click(); return 'CLICKED: '+el.textContent.trim().substring(0,40);} return 'NOT FOUND: '+kw; }"}),
+    "click_text": lambda a: ("evaluate_script", {"pageId": a.get("pageId", get_page_id(a.get("kw", ""))), "function": "() => { const kw=" + json.dumps(a.get("text", "")) + "; const els=Array.from(document.querySelectorAll('a,button,[role=button],input[type=submit]')); const el=els.find(x=>new RegExp(kw,'i').test(x.textContent||x.value||'')); if(el){el.scrollIntoView({block:'center'}); el.click(); return 'CLICKED: '+el.textContent.trim().substring(0,40);} return 'NOT FOUND: '+kw; }"}),
     "type_text": lambda a: ("type_text", {"text": a.get("text", ""), "pageId": a.get("pageId", get_page_id(a.get("kw", "")))}),
     "key": lambda a: ("press_key", {"key": a.get("key", "Enter"), "pageId": a.get("pageId", get_page_id(a.get("kw", "")))}),
     "eval": lambda a: ("evaluate_script", {"function": a.get("js", "() => document.title"), "pageId": a.get("pageId", get_page_id(a.get("kw", "")))}),
@@ -258,14 +258,14 @@ for name, port, seat, squads, per, kw in ENGINES:
             grand += 1
     speak(seat, seat + " on " + name + ": " + str(n) + " soldiers v5.2 STANDING DUTIES LIVE")
     print(seat, "on", name, ":", n)
-print("ALL ENGINES UP:", grand, "- v5.6: unattended-ready + real click actions + robust selectors")
+print("ALL ENGINES UP:", grand, "- v5.7: unattended-true blocking cell + click_text fixed + robust selectors")
 speak("ENGINE", "v5.6 UP: " + str(grand) + " soldiers, unattended-ready, click_text live")
 
-# UNATTENDED KEEPER (non-daemon): army survives main-cell end (Save & Run All)
-def _keeper():
-    while True:
-        time.sleep(300)
-threading.Thread(target=_keeper, daemon=False).start()
+# UNATTENDED: this cell BLOCKS on purpose - holds the Kaggle session open for the full 12h.
+# (Threads alone do not stop Save & Run All from completing; a blocking cell does.)
+print('ARMY HOLDING THE LINE - session stays alive. Interrupt to stop.')
+while True:
+    time.sleep(300)
 speak("ENGINE", "v5.5 UP: " + str(grand) + " soldiers, STANDING DUTIES live")
 
 # Fire standing tasks into the bank (persisted) - leads pick up on first poll
