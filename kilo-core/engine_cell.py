@@ -7,7 +7,7 @@ ENGINE_SRC = base64.b64decode("aW1wb3J0IHN5cywgb3MsIGpzb24sIHRpbWUsIHRocmVhZGluZ
 with open("/kaggle/working/kilo_engine_server.py", "w") as f:
     f.write(ENGINE_SRC)
 
-TUNNEL = "https://delivering-syndicate-musician-charge.trycloudflare.com"
+TUNNEL = "https://const-garmin-brother-charge.trycloudflare.com"
 
 def post(p, d):
     r = urllib.request.Request(TUNNEL + p + "?token=GOLD24", data=json.dumps(d).encode(), headers={"Content-Type": "application/json"})
@@ -24,7 +24,7 @@ def speak(tag, txt):
 
 def hear(sq):
     try:
-        return get("/hear?body=" + urllib.parse.quote(sq)).get("reports", [])
+        return get("/say?body=" + urllib.parse.quote(sq)).get("orders", [])
     except Exception:
         return []
 
