@@ -1,4 +1,4 @@
-# KILO ENGINE v5.5 - tab pinning + gmail selector + speak retry
+# KILO ENGINE v5.6 - UNATTENDED-READY + real click actions + robust selectors
 # One cell. One paste. Everything works. Orders persistent, tasks generic, proof to wire.
 import base64, sys, os, subprocess, time, json, threading, urllib.request, urllib.parse
 
@@ -59,6 +59,7 @@ HANDS = {
     "list_pages": lambda a: ("list_pages", {}),
     "snapshot": lambda a: ("take_snapshot", {"pageId": a.get("pageId", get_page_id(a.get("kw", "")))}),
     "click": lambda a: ("click", {"uid": a.get("uid"), "pageId": a.get("pageId", get_page_id(a.get("kw", "")))}),
+    "click_text": lambda a: ("evaluate_script", {"pageId": a.get("pageId", get_page_id(a.get("kw", ""))), "function": "() => { const kw=" + json.dumps(a.get("text", "")) + '; const els=Array.from(document.querySelectorAll('a,button,[role=button],input[type=submit]')); const el=els.find(x=>new RegExp(kw,'i').test(x.textContent||x.value||'')); if(el){el.scrollIntoView({block:'center'}); el.click(); return 'CLICKED: '+el.textContent.trim().substring(0,40);} return 'NOT FOUND: '+kw; }"}),
     "type_text": lambda a: ("type_text", {"text": a.get("text", ""), "pageId": a.get("pageId", get_page_id(a.get("kw", "")))}),
     "key": lambda a: ("press_key", {"key": a.get("key", "Enter"), "pageId": a.get("pageId", get_page_id(a.get("kw", "")))}),
     "eval": lambda a: ("evaluate_script", {"function": a.get("js", "() => document.title"), "pageId": a.get("pageId", get_page_id(a.get("kw", "")))}),
@@ -111,9 +112,9 @@ with open("/kaggle/working/kilo_engine_server.py", "w") as f:
     f.write(SERVER)
 
 # ============ TASKS (standing orders -Father's 48h commands as executable task-scripts) ============
-JS_LI = "() => { const t=Array.from(document.querySelectorAll('li.msg-conversation-listitem, [data-conversation-id]')); const out=[]; t.slice(0,8).forEach(x=>{out.push(x.textContent.replace(/\\\\\s+/g,' ').trim().substring(0,60));}); return JSON.stringify(out); }"
+JS_LI = "() => { const t=Array.from(document.querySelectorAll('li.msg-conversation-listitem, [data-conversation-id]')); const out=[]; t.slice(0,8).forEach(x=>{out.push(x.textContent.replace(/\\s+/g,' ').trim().substring(0,60));}); return JSON.stringify(out); }"
 JS_GMAIL = "() => { let rows=Array.from(document.querySelectorAll('tr.zA')); if(!rows.length){rows=Array.from(document.querySelectorAll('[role=main] tr, div[gh=tl] tr, table tr')).filter(r=>r.textContent.length>40&&r.textContent.length<400);} const out=[]; rows.slice(0,10).forEach(r=>{const t=r.textContent.replace(/\\s+/g,' ').trim(); if(t) out.push(t.substring(0,90));}); return JSON.stringify(out.slice(0,8)); }"
-JS_NAUKRI = "() => { const t=Array.from(document.querySelectorAll('[class*=jobTitle], a.title')).map(x=>x.textContent.replace(/\\\\\s+/g,' ').trim()).filter(x=>x&&x.length>10&&x.length<90); return JSON.stringify(t.slice(0,10)); }"
+JS_NAUKRI = "() => { const t=Array.from(document.querySelectorAll('[class*=jobTitle], a.title')).map(x=>x.textContent.replace(/\\s+/g,' ').trim()).filter(x=>x&&x.length>10&&x.length<90); return JSON.stringify(t.slice(0,10)); }"
 JS_WA = "() => { const rows=Array.from(document.querySelectorAll('#pane-side [role=row]')); const names=[]; rows.forEach(r=>{const s=r.querySelector('[title]'); if(s) names.push(s.title);}); return JSON.stringify(names.slice(0,12)); }"
 
 STANDING = {
@@ -257,7 +258,14 @@ for name, port, seat, squads, per, kw in ENGINES:
             grand += 1
     speak(seat, seat + " on " + name + ": " + str(n) + " soldiers v5.2 STANDING DUTIES LIVE")
     print(seat, "on", name, ":", n)
-print("ALL ENGINES UP:", grand, "- v5.5: tab pinning + speak retry + gmail selector robust")
+print("ALL ENGINES UP:", grand, "- v5.6: unattended-ready + real click actions + robust selectors")
+speak("ENGINE", "v5.6 UP: " + str(grand) + " soldiers, unattended-ready, click_text live")
+
+# UNATTENDED KEEPER (non-daemon): army survives main-cell end (Save & Run All)
+def _keeper():
+    while True:
+        time.sleep(300)
+threading.Thread(target=_keeper, daemon=False).start()
 speak("ENGINE", "v5.5 UP: " + str(grand) + " soldiers, STANDING DUTIES live")
 
 # Fire standing tasks into the bank (persisted) - leads pick up on first poll
