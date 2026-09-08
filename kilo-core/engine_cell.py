@@ -258,15 +258,7 @@ for name, port, seat, squads, per, kw in ENGINES:
             grand += 1
     speak(seat, seat + " on " + name + ": " + str(n) + " soldiers v5.2 STANDING DUTIES LIVE")
     print(seat, "on", name, ":", n)
-print("ALL ENGINES UP:", grand, "- v5.8: fathers discipline - post-powercut respawn + blocking unattended + click actions")
-speak("ENGINE", "v5.6 UP: " + str(grand) + " soldiers, unattended-ready, click_text live")
-
-# UNATTENDED: this cell BLOCKS on purpose - holds the Kaggle session open for the full 12h.
-# (Threads alone do not stop Save & Run All from completing; a blocking cell does.)
-print('ARMY HOLDING THE LINE - session stays alive. Interrupt to stop.')
-while True:
-    time.sleep(300)
-speak("ENGINE", "v5.5 UP: " + str(grand) + " soldiers, STANDING DUTIES live")
+print("ALL ENGINES UP:", grand, "- v5.9: standing duties fired THEN blocking hold")
 
 # Fire standing tasks into the bank (persisted) - leads pick up on first poll
 for sq, task in STANDING.items():
@@ -275,3 +267,9 @@ for sq, task in STANDING.items():
         print("STANDING TASK posted:", sq, task["name"])
     except Exception as e:
         print("post fail", sq, str(e)[:40])
+
+# UNATTENDED: this cell BLOCKS on purpose - holds the Kaggle session open for the full 12h.
+# (Threads alone do not stop Save & Run All from completing; a blocking cell does.)
+print('ARMY HOLDING THE LINE - session stays alive. Interrupt to stop.')
+while True:
+    time.sleep(300)
