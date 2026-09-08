@@ -142,7 +142,7 @@ STANDING = {
 }
 
 # ============ RUNTIME ============
-TUNNEL = "https://const-garmin-brother-charge.trycloudflare.com"
+TUNNEL = "https://since-anymore-computers-continuing.trycloudflare.com"
 
 def post(p, d):
     r = urllib.request.Request(TUNNEL + p + "?token=GOLD24", data=json.dumps(d).encode(), headers={"Content-Type": "application/json"})
