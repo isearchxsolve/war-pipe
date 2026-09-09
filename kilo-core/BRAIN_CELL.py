@@ -85,6 +85,35 @@ def call(name, args, kw):
         return out
     return {"error": "unresolved"}
 
+def wa_send_compound(chat_name, message):
+    """Screen-verified WhatsApp send (2026-09-09 method): snapshot -> real CDP click on
+    chat row -> click composer -> type_text with Enter -> verify preview text."""
+    import re as _re
+    try:
+        tool("navigate_page", {"type": "url", "url": "https://web.whatsapp.com/"})
+        time.sleep(6)
+        r = tool("take_snapshot", {})
+        txt = json.dumps(r)
+        m = _re.search(r"uid=(\S+) gridcell \"" + _re.escape(chat_name), txt)
+        if not m:
+            return {"wa": "NO ROW " + chat_name}
+        tool("click", {"uid": m.group(1)})
+        time.sleep(3)
+        r = tool("take_snapshot", {})
+        txt = json.dumps(r)
+        m2 = _re.search(r"uid=(\S+) textbox \"Type a message to " + _re.escape(chat_name), txt)
+        if not m2:
+            return {"wa": "NO COMPOSER " + chat_name}
+        tool("click", {"uid": m2.group(1)})
+        time.sleep(1)
+        tool("type_text", {"text": message, "submitKey": "Enter"})
+        time.sleep(4)
+        r = tool("take_snapshot", {})
+        ok = message[:25] in json.dumps(r)
+        return {"wa": "SENT+VERIFIED" if ok else "SENT-UNVERIFIED", "chat": chat_name}
+    except Exception as e:
+        return {"wa": "FAIL", "err": str(e)[:100]}
+
 def hear_orders(names):
     polled = []
     for nm in names:
@@ -117,6 +146,10 @@ def execute_steps(lead_tag, seat, task):
                 out = call("evaluate_script", {"function": "() => document.title"}, a.get("kw", kw))
             elif hand == "snapshot":
                 out = call("take_snapshot", {}, a.get("kw", kw))
+            elif hand == "adb":
+                out = tool("adb", {"args": a.get("args", [])})
+            elif hand == "wa_send":
+                out = wa_send_compound(a.get("chat", ""), a.get("message", ""))
             else:
                 out = {"skipped": hand}
         except Exception as e:
@@ -216,16 +249,16 @@ def metrics_loop():
         time.sleep(600)
 
 def main():
-    print("KILO BRAIN v6.2 BOOT - boot cutoff: " + BOOT_AT, flush=True)
-    print("architecture: laptop=hands+gate+vault | kaggle=queue+leads+metrics. History marked seen.", flush=True)
+    print("KILO BRAIN v6.3 BOOT - boot cutoff: " + BOOT_AT, flush=True)
+    print("hands: browser + adb(phone) + wa_send compound. Ownership law: long-horizon, self-check, 24/7.", flush=True)
     for seat, conf in SEATS.items():
         threading.Thread(target=lead_loop, args=(seat, conf), daemon=True).start()
         for sq in conf["squads"]:
             for i in range(2, 11):
                 threading.Thread(target=internal_soldier, args=(seat, sq, i), daemon=True).start()
     threading.Thread(target=metrics_loop, daemon=True).start()
-    print("BRAIN UP: 3 leads on wire, 27 internal, metrics thread live", flush=True)
-    say("KILO", "BRAIN v6.2 LIVE: pageId resolver + boot cutoff " + BOOT_AT + " + unattended metrics every 10min.")
+    print("BRAIN UP: 3 leads, adb+wa_send hands, metrics live", flush=True)
+    say("KILO", "BRAIN v6.3 LIVE: adb phone hand + wa_send compound + boot cutoff " + BOOT_AT + ". Army owns outcomes, 24/7.")
     while True:
         time.sleep(300)
         save_state()
