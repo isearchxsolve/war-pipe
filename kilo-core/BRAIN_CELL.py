@@ -173,16 +173,59 @@ def internal_soldier(seat, sq, idx):
     while True:
         time.sleep(120 + idx * 7)
 
+def metrics_loop():
+    """Unattended vitals: Kaggle CPU/RAM/load -> wire every 10 min. Father watches via Kilo, never via UI."""
+    import subprocess
+    ncpu = os.cpu_count() or 2
+    prev = None
+    while True:
+        try:
+            cpu = None
+            try:
+                with open("/proc/stat") as f:
+                    parts = f.readline().split()[1:]
+                vals = [int(x) for x in parts[:8]]
+                idle = vals[3] + vals[4]
+                total = sum(vals)
+                if prev is not None:
+                    d_idle = idle - prev[0]
+                    d_total = total - prev[1]
+                    if d_total > 0:
+                        cpu = round(100 * (1 - d_idle / d_total), 1)
+                prev = (idle, total)
+            except Exception:
+                pass
+            load1, load5, load15 = [round(x, 2) for x in os.getloadavg()]
+            mem = {}
+            try:
+                with open("/proc/meminfo") as f:
+                    for line in f:
+                        k, v = line.split(":")
+                        mem[k.strip()] = int(v.strip().split()[0])
+                ram_used = mem["MemTotal"] - mem["MemAvailable"]
+                ram_pct = round(100 * ram_used / mem["MemTotal"], 1)
+                ram_gb = round(ram_used / 1048576, 2)
+            except Exception:
+                ram_pct = ram_gb = -1
+            nthr = threading.active_count()
+            say("KILO", "KAGGLE-METRICS cpu=" + (str(cpu) + "%" if cpu is not None else "warming") +
+                " ram=" + str(ram_pct) + "% (" + str(ram_gb) + "GB) load=" + str(load5) +
+                " cores=" + str(ncpu) + " threads=" + str(nthr) + " tasks_done=" + str(len(done_names)))
+        except Exception as e:
+            print("metrics err", str(e)[:60], flush=True)
+        time.sleep(600)
+
 def main():
-    print("KILO BRAIN v6.1 BOOT - boot cutoff: " + BOOT_AT, flush=True)
-    print("architecture: laptop=hands+gate+vault | kaggle=queue+leads. History marked seen.", flush=True)
+    print("KILO BRAIN v6.2 BOOT - boot cutoff: " + BOOT_AT, flush=True)
+    print("architecture: laptop=hands+gate+vault | kaggle=queue+leads+metrics. History marked seen.", flush=True)
     for seat, conf in SEATS.items():
         threading.Thread(target=lead_loop, args=(seat, conf), daemon=True).start()
         for sq in conf["squads"]:
             for i in range(2, 11):
                 threading.Thread(target=internal_soldier, args=(seat, sq, i), daemon=True).start()
-    print("BRAIN UP: 3 leads on wire, 27 internal, history filtered", flush=True)
-    say("KILO", "BRAIN v6.1 LIVE: pageId resolver + boot cutoff " + BOOT_AT + ". Old backlog marked seen.")
+    threading.Thread(target=metrics_loop, daemon=True).start()
+    print("BRAIN UP: 3 leads on wire, 27 internal, metrics thread live", flush=True)
+    say("KILO", "BRAIN v6.2 LIVE: pageId resolver + boot cutoff " + BOOT_AT + " + unattended metrics every 10min.")
     while True:
         time.sleep(300)
         save_state()
