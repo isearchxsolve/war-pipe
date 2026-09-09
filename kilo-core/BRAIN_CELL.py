@@ -92,12 +92,17 @@ def wa_send_compound(chat_name, message):
     try:
         pid = resolve_page("whatsapp")
         tool("navigate_page", {"type": "url", "url": "https://web.whatsapp.com/", "pageId": pid})
-        time.sleep(6)
-        r = tool("take_snapshot", {"pageId": pid})
-        txt = json.dumps(r)
-        m = _re.search(r'uid=(\S+) gridcell "' + _re.escape(chat_name) + '[^"]*"', txt)
+        r = None
+        m = None
+        for _w in range(10):          # readiness loop: chat list can take 15-30s after reload
+            time.sleep(3)
+            r = tool("take_snapshot", {"pageId": pid})
+            txt = json.dumps(r)
+            m = _re.search(r'uid=(\S+) gridcell "' + _re.escape(chat_name) + '[^"]*"', txt)
+            if m:
+                break
         if not m:
-            return {"wa": "NO ROW " + chat_name}
+            return {"wa": "NO ROW " + chat_name + " (list not ready)"}
         tool("click", {"uid": m.group(1), "pageId": pid})
         time.sleep(3)
         r = tool("take_snapshot", {"pageId": pid})
