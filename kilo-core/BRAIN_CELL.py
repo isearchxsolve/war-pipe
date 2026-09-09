@@ -91,16 +91,19 @@ def wa_send_compound(chat_name, message):
     import re as _re
     try:
         pid = resolve_page("whatsapp")
-        tool("navigate_page", {"type": "url", "url": "https://web.whatsapp.com/", "pageId": pid})
+        # v6.3.4: NEVER reload a live WA tab - reload wipes the chat list for 15-30s.
+        # Snapshot the live tab first; navigate only if the chat list is not ready.
         r = None
         m = None
-        for _w in range(10):          # readiness loop: chat list can take 15-30s after reload
-            time.sleep(3)
+        for _w in range(10):
             r = tool("take_snapshot", {"pageId": pid})
             txt = json.dumps(r)
             m = _re.search(r'uid=(\S+) gridcell "' + _re.escape(chat_name) + '[^"]*"', txt)
             if m:
                 break
+            if _w == 0:
+                tool("navigate_page", {"type": "url", "url": "https://web.whatsapp.com/", "pageId": pid})
+            time.sleep(3)
         if not m:
             return {"wa": "NO ROW " + chat_name + " (list not ready)"}
         tool("click", {"uid": m.group(1), "pageId": pid})
