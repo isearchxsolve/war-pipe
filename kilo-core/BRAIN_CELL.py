@@ -98,7 +98,7 @@ def wa_send_compound(chat_name, message):
         for _w in range(10):
             r = tool("take_snapshot", {"pageId": pid})
             txt = json.dumps(r)
-            m = _re.search(r'uid=(\S+) gridcell "' + _re.escape(chat_name) + '[^"]*"', txt)
+            m = _re.search(r'uid=(\S+) gridcell \\"?' + _re.escape(chat_name), txt)
             if m:
                 break
             if _w == 0:
@@ -110,7 +110,7 @@ def wa_send_compound(chat_name, message):
         time.sleep(3)
         r = tool("take_snapshot", {"pageId": pid})
         txt = json.dumps(r)
-        m2 = _re.search(r'uid=(\S+) textbox "Type a message to ' + _re.escape(chat_name) + '[^"]*"', txt)
+        m2 = _re.search(r'uid=(\S+) textbox \\"?Type a message to ' + _re.escape(chat_name), txt)
         if not m2:
             return {"wa": "NO COMPOSER " + chat_name}
         tool("click", {"uid": m2.group(1), "pageId": pid})
