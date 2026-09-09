@@ -142,7 +142,7 @@ STANDING = {
 }
 
 # ============ RUNTIME ============
-TUNNEL = "https://cars-additional-adopt-recognised.trycloudflare.com"
+TUNNEL = "https://meredith-impermissible-unsportively.ngrok-free.dev"
 
 def post(p, d):
     r = urllib.request.Request(TUNNEL + p + "?token=GOLD24", data=json.dumps(d).encode(), headers={"Content-Type": "application/json"})
@@ -172,9 +172,9 @@ def hand(port, name, args):
     return json.loads(urllib.request.urlopen(r, timeout=150).read())
 
 ENGINES = [
-    ("ENGINE-1", 9999, "SEAT-A", ["DM", "WA", "COMMENTER", "POSTER"], 10, "linkedin"),
-    ("ENGINE-2", 9998, "SEAT-B", ["BIZMODEL", "MONITOR", "SCOUT"], 10, "naukri"),
-    ("ENGINE-3", 9997, "SEAT-C", ["LEDGER", "HERALD", "WARDEN"], 10, "whatsapp"),
+    ("ENGINE-1", 9999, "SEAT-A", ["DM", "WA", "COMMENTER", "POSTER"], 334, "linkedin"),
+    ("ENGINE-2", 9998, "SEAT-B", ["BIZMODEL", "MONITOR", "SCOUT"], 333, "naukri"),
+    ("ENGINE-3", 9997, "SEAT-C", ["LEDGER", "HERALD", "WARDEN"], 333, "whatsapp"),
 ]
 for name, port, seat, squads, per, kw in ENGINES:
     env = dict(os.environ)
