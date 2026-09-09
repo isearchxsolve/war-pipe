@@ -86,29 +86,30 @@ def call(name, args, kw):
     return {"error": "unresolved"}
 
 def wa_send_compound(chat_name, message):
-    """Screen-verified WhatsApp send (2026-09-09 method): snapshot -> real CDP click on
+    """Screen-verified WhatsApp send (2026-09-09 method): resolve WA pageId -> snapshot -> real CDP click on
     chat row -> click composer -> type_text with Enter -> verify preview text."""
     import re as _re
     try:
-        tool("navigate_page", {"type": "url", "url": "https://web.whatsapp.com/"})
+        pid = resolve_page("whatsapp")
+        tool("navigate_page", {"type": "url", "url": "https://web.whatsapp.com/", "pageId": pid})
         time.sleep(6)
-        r = tool("take_snapshot", {})
+        r = tool("take_snapshot", {"pageId": pid})
         txt = json.dumps(r)
         m = _re.search(r"uid=(\S+) gridcell \"" + _re.escape(chat_name), txt)
         if not m:
             return {"wa": "NO ROW " + chat_name}
-        tool("click", {"uid": m.group(1)})
+        tool("click", {"uid": m.group(1), "pageId": pid})
         time.sleep(3)
-        r = tool("take_snapshot", {})
+        r = tool("take_snapshot", {"pageId": pid})
         txt = json.dumps(r)
         m2 = _re.search(r"uid=(\S+) textbox \"Type a message to " + _re.escape(chat_name), txt)
         if not m2:
             return {"wa": "NO COMPOSER " + chat_name}
-        tool("click", {"uid": m2.group(1)})
+        tool("click", {"uid": m2.group(1), "pageId": pid})
         time.sleep(1)
-        tool("type_text", {"text": message, "submitKey": "Enter"})
+        tool("type_text", {"pageId": pid, "text": message, "submitKey": "Enter"})
         time.sleep(4)
-        r = tool("take_snapshot", {})
+        r = tool("take_snapshot", {"pageId": pid})
         ok = message[:25] in json.dumps(r)
         return {"wa": "SENT+VERIFIED" if ok else "SENT-UNVERIFIED", "chat": chat_name}
     except Exception as e:
