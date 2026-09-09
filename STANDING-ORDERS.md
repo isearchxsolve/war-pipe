@@ -31,7 +31,7 @@ Updated: 2026-09-08 ~9:30 AM IST
 
 ## ARCHITECTURE (locked)
 - Relay v3 on 127.0.0.1:8777 token GOLD24: /say orders bank (PERSISTENT order-bank.json), /hear reports, /tool MCP, /health.
-- Tunnel http2 --edge-ip-version 4 (QUIC dies). CURRENT DOOR: const-garmin-brother-charge.trycloudflare.com (changes on restart; relay-door.txt is truth).
+- Tunnel: NGROK STATIC DOMAIN — PERMANENT DOOR (Father 2026-09-09: "tunnel should be fixed forever no more dying tunnel"). DOOR: https://meredith-impermissible-unsportively.ngrok-free.dev — never changes, never regenerated. Watchdog v2 (SYSTEM task KILO-RELAY-WATCHDOG, boot+logon) resurrects relay+ngrok every 15s; survives reboot, power cut, sleep, network-off. relay-door.txt is truth.
 - Kaggle ONE instance hosts 3 ENGINE subprocesses (ports 9999/9998/9997, kw linkedin/naukri/whatsapp): hands-proxy -> relay /tool -> FATHERS CHROME (only browser).
 - Soldiers: 100 (SEAT-A: DM/WA/COMMENTER/POSTER x10 on E1; SEAT-B: BIZMODEL/MONITOR/SCOUT x10 on E2; SEAT-C: LEDGER/HERALD/WARDEN x10 on E3). Poll orders bank every cycle; TASK:{json steps} executed live; TASK-DONE reports.
 - v5 cell committed: war-pipe/kilo-core/engine_cell.py (+engine_server.py). Door URL baked — regenerate cell on door change.
