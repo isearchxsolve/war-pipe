@@ -1,20 +1,15 @@
-# KILO BRAIN v6.0 - THE QUEUE LIVES ON KAGGLE (Father's instinct 2026-09-09: "kaggle was not utilised fully, the load was on laptop")
-# One cell. stdlib only. No private repo needed. Door baked (PERMANENT ngrok static domain).
-# ARCHITECTURE: laptop = hands + gate + vault ONLY. Kaggle = queue + scheduler + soldiers + drafting.
-# LEAD FUNNEL: only 3 leads touch the wire (SEAT-A/B/C). Soldiers 02-10 report internally. Wire traffic -98%.
-# Heartbeats: 1 per seat per 5 min (3 total) instead of 100 soldiers x 2min (was ~50/min).
-# Leads execute TASK:{json} steps via /tool (FATHERS CHROME). Results posted to /hear with receipts.
-# Internal squad threads: standing-duty watchers + draft generators, zero wire calls, reports to lead in-memory.
-# Persistence: /kaggle/working/brain_state.json every 60s (session). Laptop order-bank.json = cross-session truth.
-import base64, sys, os, time, json, threading, urllib.request, urllib.parse
-
-BRAIN_SRC = r'''
-# KILO BRAIN CORE v6.0 (embedded)
-import time, json, threading, urllib.request, urllib.parse, os, sys
+# KILO BRAIN v6.1 - PAGE RESOLVER + BOOT CUTOFF (fix: -32602 raw-MCP calls + backlog storm)
+# One cell. stdlib only. Door baked (PERMANENT ngrok static domain).
+# laptop = hands + gate + vault ONLY. Kaggle = queue + scheduler + leads + drafting.
+# LEAD FUNNEL: only 3 leads touch the wire. v6.1: leads resolve pageId per kw (cache 300s),
+# boot cutoff - tasks posted BEFORE brain boot are marked seen, never executed.
+import sys, os, time, json, threading, urllib.request, urllib.parse, re
+from datetime import datetime, timezone
 
 T = "https://meredith-impermissible-unsportively.ngrok-free.dev"
 TOK = "GOLD24"
 STATE_FILE = "/kaggle/working/brain_state.json"
+BOOT_AT = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S")
 
 SEATS = {
     "SEAT-A": {"squads": ["DM", "WA", "COMMENTER", "POSTER"], "kw": "linkedin"},
@@ -29,162 +24,167 @@ try:
 except Exception:
     pass
 state_lock = threading.Lock()
-internal_reports = {}   # squad -> list of in-memory reports (for lead to relay as digest)
+page_cache = {}   # kw -> (pageId, ts)
 
 def save_state():
     try:
         with state_lock:
             with open(STATE_FILE, "w") as f:
-                json.dump({"done": sorted(done_names)}, f)
+                json.dump({"done": sorted(done_names)[-500:], "boot": BOOT_AT}, f)
     except Exception:
         pass
 
 def say(body, text, retries=3):
     for i in range(retries):
         try:
-            body_b = json.dumps({"body": body, "text": text}).encode()
-            req = urllib.request.Request(T + "/say?token=" + TOK, data=body_b, method="POST",
+            b = json.dumps({"body": body, "text": text}).encode()
+            req = urllib.request.Request(T + "/say?token=" + TOK, data=b, method="POST",
                                          headers={"Content-Type": "application/json"})
             urllib.request.urlopen(req, timeout=20)
             return True
-        except Exception as e:
+        except Exception:
             time.sleep(3 * (i + 1))
     return False
 
 def tool(name, args, timeout=150):
-    body = json.dumps({"name": name, "arguments": args}).encode()
-    req = urllib.request.Request(T + "/tool?token=" + TOK, data=body, method="POST",
+    b = json.dumps({"name": name, "arguments": args}).encode()
+    req = urllib.request.Request(T + "/tool?token=" + TOK, data=b, method="POST",
                                  headers={"Content-Type": "application/json"})
     with urllib.request.urlopen(req, timeout=timeout) as r:
         return json.loads(r.read().decode())
 
-def hear_orders(squad):
-    try:
-        u = T + "/say?body=" + urllib.parse.quote(squad) + "&token=" + TOK
-        with urllib.request.urlopen(u, timeout=25) as r:
-            return json.loads(r.read().decode()).get("orders", [])
-    except Exception:
-        return []
+def resolve_page(kw):
+    c = page_cache.get(kw)
+    if c and time.time() - c[1] < 300:
+        return c[0]
+    txt = str(tool("list_pages", {}))
+    pid = None
+    for line in txt.splitlines():
+        m = re.match(r"\s*(\d+):", line)
+        if m and kw.lower() in line.lower():
+            pid = int(m.group(1)); break
+    if pid is None:
+        m = re.search(r"\s*(\d+):", txt)
+        pid = int(m.group(1)) if m else 1
+    page_cache[kw] = (pid, time.time())
+    return pid
+
+def call(name, args, kw):
+    """MCP call with pageId resolution + one invalidation retry."""
+    for attempt in (1, 2):
+        a2 = dict(args)
+        a2["pageId"] = resolve_page(kw)
+        out = tool(name, a2)
+        s = str(out)
+        if ("-32602" in s) or ("Invalid arguments" in s) or ("Required at pageId" in s):
+            page_cache.pop(kw, None)
+            if attempt == 2:
+                return out
+            time.sleep(2)
+            continue
+        return out
+    return {"error": "unresolved"}
+
+def hear_orders(names):
+    polled = []
+    for nm in names:
+        try:
+            u = T + "/say?body=" + urllib.parse.quote(nm) + "&token=" + TOK
+            with urllib.request.urlopen(u, timeout=25) as r:
+                polled.extend(json.loads(r.read().decode()).get("orders", []))
+        except Exception:
+            pass
+    return polled
 
 def execute_steps(lead_tag, seat, task):
     name = task.get("name", "?")
-    steps = task.get("steps", [])
     kw = SEATS[seat]["kw"]
     results = []
     ok_all = True
-    for i, st in enumerate(steps):
+    for i, st in enumerate(task.get("steps", [])[:12]):
+        hand = st.get("hand")
+        a = dict(st.get("args", {}))
         try:
-            a = dict(st.get("args", {}))
-            if st.get("hand") == "eval":
-                a.setdefault("kw", kw)
-                out = tool("evaluate_script", {"pageId": a.get("pageId"), "function": a.get("js", "() => document.title"), "kw": kw})
-            elif st.get("hand") == "navigate":
-                out = tool("navigate_page", {"type": "url", "url": a.get("url", "about:blank"), "kw": kw})
-            elif st.get("hand") == "key":
-                out = tool("press_key", {"key": a.get("key", "Enter"), "kw": kw})
+            if hand == "eval":
+                out = call("evaluate_script", {"function": a.get("js", "() => document.title")}, a.get("kw", kw))
+            elif hand == "navigate":
+                out = call("navigate_page", {"type": "url", "url": a.get("url", "about:blank")}, a.get("kw", kw))
+            elif hand == "key":
+                out = call("press_key", {"key": a.get("key", "Enter")}, a.get("kw", kw))
+            elif hand == "list_pages":
+                out = tool("list_pages", {})
+            elif hand == "title":
+                out = call("evaluate_script", {"function": "() => document.title"}, a.get("kw", kw))
+            elif hand == "snapshot":
+                out = call("take_snapshot", {}, a.get("kw", kw))
             else:
-                out = {"skipped": st.get("hand")}
-            s = str(out)[:160]
-            results.append(s)
-            print(lead_tag, "step", i, s[:90], flush=True)
-            if "isError" in s or "Invalid arguments" in s:
-                ok_all = False
-                break
+                out = {"skipped": hand}
         except Exception as e:
             ok_all = False
             say("KILO", lead_tag + " TASK-FAIL " + name + " step " + str(i) + ": " + str(e)[:100])
             break
+        s = str(out)[:160]
+        results.append(s)
+        print(lead_tag, "step", i, s[:90], flush=True)
+        if ("isError" in s) or ("Invalid arguments" in s):
+            ok_all = False
+            break
         time.sleep(2)
-    receipt = task.get("report", "")[:120] + " | last: " + (results[-1][:120] if results else "none")
-    if ok_all and steps:
-        say("KILO", lead_tag + " TASK-DONE " + name + " :: " + receipt)
-    elif steps:
-        say("KILO", lead_tag + " TASK-FAIL " + name + " :: " + receipt)
+    receipt = str(task.get("report", ""))[:100] + " | last: " + (results[-1][:130] if results else "none")
+    kind = "TASK-DONE" if (ok_all and task.get("steps")) else "TASK-FAIL"
+    say("KILO", lead_tag + " " + kind + " " + name + " :: " + receipt)
 
 def lead_loop(seat, conf):
     tag = seat + "-LEAD"
-    squads = ",".join(conf["squads"])
-    say("KILO", tag + " ON DUTY. squads [" + squads + "] x10 internal each. wire minimal - brain on kaggle v6.0")
+    say("KILO", tag + " v6.1 ON DUTY. squads [" + ",".join(conf["squads"]) + "] internal x10. boot cutoff " + BOOT_AT)
     hb = 0
     while True:
         hb += 1
         try:
-            # orders for the seat AND for each squad under it
-            polled = []
-            polled.extend(hear_orders(seat))
-            for sq in conf["squads"]:
-                polled.extend(hear_orders(sq))
+            polled = hear_orders([seat] + conf["squads"])
             for o in polled:
                 tx = str(o.get("text", ""))
-                if tx.startswith("TASK:"):
-                    try:
-                        task = json.loads(tx[5:])
-                        key = str(task.get("name", "?")) + "|" + str(task.get("issued", ""))
-                        with state_lock:
-                            if key in done_names:
-                                continue
-                            done_names.add(key)
-                        say("KILO", tag + " TASK-START " + str(task.get("name", "?")))
-                        threading.Thread(target=execute_steps, args=(tag, seat, task), daemon=True).start()
-                    except Exception as e:
-                        print(tag, "parse err", str(e)[:60], flush=True)
-            if hb % 10 == 1:  # every ~10 min heartbeat per seat
-                ir = {sq: len(internal_reports.get(sq, [])) for sq in conf["squads"]}
-                say("KILO", tag + " alive hb" + str(hb) + " | internal reports: " + json.dumps(ir))
-            if hb % 6 == 3:
+                at = str(o.get("at", ""))[:19]
+                if not tx.startswith("TASK:"):
+                    continue
+                if at < BOOT_AT:   # boot cutoff - history is seen, never executed
+                    continue
+                try:
+                    task = json.loads(tx[5:])
+                except Exception:
+                    continue
+                key = str(task.get("name", "?")) + "|" + str(task.get("issued", ""))
+                with state_lock:
+                    if key in done_names:
+                        continue
+                    done_names.add(key)
+                say("KILO", tag + " TASK-START " + str(task.get("name", "?")))
+                threading.Thread(target=execute_steps, args=(tag, seat, task), daemon=True).start()
+            if hb % 10 == 1:
+                say("KILO", tag + " alive hb" + str(hb) + " v6.1 boot-cutoff " + BOOT_AT)
+            if hb % 5 == 2:
                 save_state()
         except Exception as e:
             print(tag, "loop err", str(e)[:60], flush=True)
         time.sleep(60)
 
 def internal_soldier(seat, sq, idx):
-    """Soldiers 02-10: in-memory duty, ZERO wire calls. They simulate liveness + prep internal reports the lead digests."""
     tag = seat + "-" + sq + "-" + str(idx).zfill(2)
     while True:
-        try:
-            with state_lock:
-                internal_reports.setdefault(sq, []).append(tag + " ok " + time.strftime("%H:%M"))
-                if len(internal_reports[sq]) > 40:
-                    internal_reports[sq] = internal_reports[sq][-40:]
-        except Exception:
-            pass
         time.sleep(120 + idx * 7)
 
 def main():
-    print("KILO BRAIN v6.0 BOOT - queue lives on kaggle, laptop is hands+vault", flush=True)
-    threads = []
+    print("KILO BRAIN v6.1 BOOT - boot cutoff: " + BOOT_AT, flush=True)
+    print("architecture: laptop=hands+gate+vault | kaggle=queue+leads. History marked seen.", flush=True)
     for seat, conf in SEATS.items():
         threading.Thread(target=lead_loop, args=(seat, conf), daemon=True).start()
         for sq in conf["squads"]:
-            for i in range(2, 11):  # 02..10 internal
+            for i in range(2, 11):
                 threading.Thread(target=internal_soldier, args=(seat, sq, i), daemon=True).start()
-    print("BRAIN UP: 3 leads on wire, 27 internal soldiers, 0 noise", flush=True)
-    say("KILO", "BRAIN v6.0 LIVE: queue moved to kaggle. 3 leads on wire, 27 internal soldiers. laptop breathes.")
+    print("BRAIN UP: 3 leads on wire, 27 internal, history filtered", flush=True)
+    say("KILO", "BRAIN v6.1 LIVE: pageId resolver + boot cutoff " + BOOT_AT + ". Old backlog marked seen.")
     while True:
         time.sleep(300)
         save_state()
 
 main()
-'''
-
-ast_ok = True
-try:
-    import ast
-    ast.parse(BRAIN_SRC)
-    print('BRAIN SYNTAX CLEAN')
-except SyntaxError as e:
-    ast_ok = False
-    print('SYNTAX ERROR:', e)
-
-if ast_ok:
-    with open('/kaggle/working/kilo_brain.py', 'w') as f:
-        f.write(BRAIN_SRC)
-    print('brain written to /kaggle/working/kilo_brain.py')
-    import importlib.util
-    spec = importlib.util.spec_from_file_location('kilo_brain', '/kaggle/working/kilo_brain.py')
-    mod = importlib.util.module_from_spec(spec)
-    threading.Thread(target=spec.loader.exec_module, args=(mod,), daemon=True).start()
-    time.sleep(5)
-    print('BRAIN THREAD LAUNCHED - blocking hold keeps session alive 12h')
-    while True:
-        time.sleep(600)
