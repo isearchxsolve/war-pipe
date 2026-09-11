@@ -178,7 +178,7 @@ def execute_steps(lead_tag, seat, task):
 
 def lead_loop(seat, conf):
     tag = seat + "-LEAD"
-    say("KILO", tag + " v6.1 ON DUTY. squads [" + ",".join(conf["squads"]) + "] internal x10. boot cutoff " + BOOT_AT)
+    say("KILO", tag + " v6.3-free ON DUTY. squads [" + ",".join(conf["squads"]) + "] internal x10. boot cutoff " + BOOT_AT + " poll 5m")
     hb = 0
     while True:
         hb += 1
@@ -202,13 +202,13 @@ def lead_loop(seat, conf):
                     done_names.add(key)
                 say("KILO", tag + " TASK-START " + str(task.get("name", "?")))
                 threading.Thread(target=execute_steps, args=(tag, seat, task), daemon=True).start()
-            if hb % 10 == 1:
-                say("KILO", tag + " alive hb" + str(hb) + " v6.1 boot-cutoff " + BOOT_AT)
-            if hb % 5 == 2:
+            if hb % 6 == 1:
+                say("KILO", tag + " alive hb" + str(hb) + " v6.3-free 5m poll boot-cutoff " + BOOT_AT)
+            if hb % 3 == 2:
                 save_state()
         except Exception as e:
             print(tag, "loop err", str(e)[:60], flush=True)
-        time.sleep(60)
+        time.sleep(300)
 
 def internal_soldier(seat, sq, idx):
     tag = seat + "-" + sq + "-" + str(idx).zfill(2)
