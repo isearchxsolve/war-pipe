@@ -47,6 +47,14 @@ def prog(msg):
     print(msg, flush=True)
     say("TUNE " + msg)
 
+import traceback as _tb
+
+def _hook(t, v, tb):
+    frame = _tb.extract_tb(tb)[-1] if tb else None
+    say("TUNE CRASH " + t.__name__ + ": " + str(v)[:200] + " @" + (frame.name if frame else "?") + ":" + str(frame.lineno if frame else "?"))
+
+sys.excepthook = _hook
+
 t0 = time.time()
 prog("START xtts fine-tune")
 
@@ -63,17 +71,32 @@ except Exception:
         prog("installed coqui-tts (idiap fork)")
     else:
         pip("--ignore-requires-python", "coqui-tts")
-try:
-    from TTS.tts.layers.xtts.trainer.gpt_trainer import GPTArgs, GPTTrainer, GPTTrainerConfig, XttsAudioConfig
-    prog("GPTTrainer import OK")
-except Exception as e:
-    prog(f"first import failed: {type(e).__name__} {str(e)[:120]}")
-    pip("transformers==4.37.2")
-    pip("coqui-tts", "--upgrade")
-    from TTS.tts.layers.xtts.trainer.gpt_trainer import GPTArgs, GPTTrainer, GPTTrainerConfig, XttsAudioConfig
-    prog("GPTTrainer import OK after fix")
+def _resolve_imports():
+    from TTS.tts.layers.xtts.trainer.gpt_trainer import GPTArgs, GPTTrainer, GPTTrainerConfig
+    try:
+        from TTS.tts.layers.xtts.trainer.gpt_trainer import XttsAudioConfig
+    except ImportError:
+        try:
+            from TTS.tts.configs.xtts_config import XttsAudioConfig
+        except ImportError:
+            from TTS.config.shared_configs import BaseAudioConfig as XttsAudioConfig
+    try:
+        from trainer import Trainer, TrainerArgs
+    except ImportError:
+        from TTS.trainer import Trainer, TrainerArgs
+    return GPTArgs, GPTTrainer, GPTTrainerConfig, XttsAudioConfig, Trainer, TrainerArgs
 
-from trainer import Trainer, TrainerArgs
+resolved = None
+for attempt in range(2):
+    try:
+        resolved = _resolve_imports()
+        prog("trainer imports OK")
+        break
+    except Exception as e:
+        prog(f"import attempt {attempt}: {type(e).__name__} {str(e)[:140]}")
+        if attempt == 0:
+            pip("coqui-tts-trainer")
+GPTArgs, GPTTrainer, GPTTrainerConfig, XttsAudioConfig, Trainer, TrainerArgs = resolved
 from TTS.config.shared_configs import BaseDatasetConfig
 from TTS.tts.datasets import load_tts_samples
 
@@ -102,13 +125,18 @@ if not all([CK, DV, ME, VO]):
 prog(f"weights ck={os.path.getsize(CK)} dvae={os.path.getsize(DV)}")
 
 # ---------- 2. dataset: father-corpus windows + deva-transliterated meta ----------
-_dsdir = [d for d in glob.glob("/kaggle/input/**/father-corpus", recursive=True) if os.path.isdir(d)]
-ds_root = _dsdir[0] if _dsdir else "/kaggle/input/father-corpus"
-if not glob.glob(os.path.join(ds_root, "**", "metadata_hi.csv"), recursive=True):
-    prog("FATAL metadata_hi.csv missing - bump father-corpus dataset first")
+meta_hi_h = [p for p in glob.glob("/kaggle/input/**/metadata_hi.csv", recursive=True) if "father" in p]
+meta_en_h = [p for p in glob.glob("/kaggle/input/**/metadata_en.csv", recursive=True) if "father" in p]
+if not (meta_hi_h and meta_en_h):
+    tree = []
+    for root, dirs, fs in os.walk("/kaggle/input"):
+        for x in fs[:3]:
+            tree.append(os.path.join(root, x))
+    say("TUNE NO META found - tree: " + " | ".join(tree[:30])[:900])
     sys.exit(3)
-meta_hi = glob.glob(os.path.join(ds_root, "**", "metadata_hi.csv"), recursive=True)[0]
-meta_en = glob.glob(os.path.join(ds_root, "**", "metadata_en.csv"), recursive=True)[0]
+ds_root = os.path.dirname(meta_hi_h[0])
+prog(f"ds_root={ds_root}")
+meta_hi, meta_en = meta_hi_h[0], meta_en_h[0]
 
 DATASETS = [
     BaseDatasetConfig(formatter="ljspeech", dataset_name="father_hi", path=ds_root, meta_file_train=meta_hi, language="hi"),
@@ -122,24 +150,61 @@ import numpy as np
 from scipy.signal import resample_poly
 import soundfile as sf
 
+def _norm(b):
+    return " ".join(b.split()).replace("&", "and")
+
 def resample22():
     rows_new = []
+    bad = 0
+    # transcript table keyed by NORMALIZED BASENAME - mount layout independent
+    texttab = {}
     for src in (meta_hi, meta_en):
         for line in open(src, encoding="utf-8"):
             line = line.rstrip("\n")
             if not line or "|" not in line:
                 continue
             path, text = line.split("|", 1)
-            dst = os.path.join(WOK22, os.path.basename(path))
-            if not os.path.exists(dst):
-                w, sr = sf.read(path)
-                if sr != 22050:
-                    w = resample_poly(np.asarray(w, dtype=np.float64), 147, 160)
-                sf.write(dst, w, 22050)
-            rows_new.append((src, dst, text))
+            texttab.setdefault((src, _norm(os.path.basename(path))), text)
+    prog(f"meta texttab hi/en={sum(1 for s, b in texttab if s == meta_hi)}/{sum(1 for s, b in texttab if s == meta_en)}")
+    # discover actual audio files ANYWHERE under the mount
+    audio = {}
+    for root, _, fs in os.walk(ds_root):
+        for x in fs:
+            if x.lower().endswith(".wav"):
+                audio.setdefault(_norm(x), os.path.join(root, x))
+    prog(f"mount audio files={len(audio)}")
+    for src in (meta_hi, meta_en):
+        for (s2, b), t in texttab.items():
+            if s2 != src:
+                continue
+            path = audio.get(b)
+            if path is None:
+                bad += 1
+                continue
+            dst = os.path.join(WOK22, b)
+            ok = os.path.exists(dst) and os.path.getsize(dst) > 4000
+            if not ok:
+                try:
+                    try:
+                        w, sr = sf.read(path)
+                    except Exception:
+                        rawp = dst + ".raw"
+                        subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", path, "-f", "f32le", "-ac", "1", rawp], capture_output=True, check=True)
+                        w = np.fromfile(rawp, dtype=np.float32)
+                        os.remove(rawp)
+                        sr = 24000
+                    if sr != 22050:
+                        w = resample_poly(np.asarray(w, dtype=np.float64), 147, 160)
+                    sf.write(dst, np.asarray(w, dtype=np.float32), 22050)
+                    ok = True
+                except Exception:
+                    bad += 1
+            if ok:
+                rows_new.append((src, dst, t))
+    prog(f"resample done rows={len(rows_new)} bad={bad}")
     for tag in ("hi", "en"):
         src = meta_hi if tag == "hi" else meta_en
-        with open(WOK22 + f"/../metadata_{tag}_22.csv", "w", encoding="utf-8") as fh:
+        with open(WORK + f"/metadata_{tag}_22.csv", "w", encoding="utf-8") as fh:
             for s, p, t in rows_new:
                 if s == src:
                     fh.write(f"{p}|{t}\n")

@@ -30,7 +30,8 @@ t0 = time.time()
 prog("START transcribe")
 
 # ---------- 0. install ----------
-subprocess.check_call([sys.executable, "-m", "pip", "install", "-q", "faster-whisper"])
+r = subprocess.call([sys.executable, "-m", "pip", "install", "-q", "faster-whisper"])
+prog(f"pip faster-whisper rc={r}")
 
 # ---------- 1. find corpus (wait for dataset extraction, dump tree if lost) ----------
 cand, waited = [], 0
@@ -71,16 +72,46 @@ def bn_to_deva(s):
 def has_script(s, lo, hi):
     return any(lo <= ord(c) <= hi for c in s)
 
-# ---------- 3. transcribe ----------
-from faster_whisper import WhisperModel
-model = WhisperModel("large-v3", device="cuda", compute_type="float16")
-prog("large-v3 loaded on GPU")
+# ---------- 3. transcribe (faster-whisper preferred, HF transformers fallback, always produce meta) ----------
+engine = None
+try:
+    from faster_whisper import WhisperModel
+    for ct in ("float32", "int8_float16", "int8"):
+        try:
+            model = WhisperModel("large-v3", device="cuda", compute_type=ct)
+            engine = "fw"
+            prog(f"faster-whisper large-v3 on GPU ({ct})")
+            break
+        except Exception as ie:
+            prog(f"fw {ct} fail {type(ie).__name__} {str(ie)[:100]}")
+except Exception as e:
+    prog(f"faster-whisper import failed ({type(e).__name__} {str(e)[:120]})")
+if engine is None:
+    try:
+        import torch
+        from transformers import pipeline as hf_pipeline
+        pipe = hf_pipeline("automatic-speech-recognition", model="openai/whisper-medium",
+                           device=0 if torch.cuda.is_available() else -1)
+        engine = "hf"
+        prog("HF whisper-medium loaded (fp32)")
+    except Exception as e2:
+        prog(f"HF fallback failed too ({type(e2).__name__} {str(e2)[:120]}) - NO-TEXT mode")
+
+def transcript(f):
+    if engine == "fw":
+        segs, _ = model.transcribe(f, language=None, beam_size=1, condition_on_previous_text=False)
+        return " ".join(s.text.strip() for s in segs).strip()
+    if engine == "hf":
+        r = pipe(f)
+        if isinstance(r, dict):
+            return (r.get("text") or "").strip()
+        return str(r).strip()
+    return ""
 
 hi_rows, en_rows, skipped = [], [], 0
 for i, f in enumerate(cand, 1):
     try:
-        segs, info = model.transcribe(f, language=None, beam_size=1, condition_on_previous_text=False)
-        text = " ".join(s.text.strip() for s in segs).strip()
+        text = transcript(f)
     except Exception:
         skipped += 1
         continue
