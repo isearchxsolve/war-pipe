@@ -102,7 +102,8 @@ if not all([CK, DV, ME, VO]):
 prog(f"weights ck={os.path.getsize(CK)} dvae={os.path.getsize(DV)}")
 
 # ---------- 2. dataset: father-corpus windows + deva-transliterated meta ----------
-ds_root = "/kaggle/input/father-corpus"
+_dsdir = [d for d in glob.glob("/kaggle/input/**/father-corpus", recursive=True) if os.path.isdir(d)]
+ds_root = _dsdir[0] if _dsdir else "/kaggle/input/father-corpus"
 if not glob.glob(os.path.join(ds_root, "**", "metadata_hi.csv"), recursive=True):
     prog("FATAL metadata_hi.csv missing - bump father-corpus dataset first")
     sys.exit(3)

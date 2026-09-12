@@ -32,11 +32,21 @@ prog("START transcribe")
 # ---------- 0. install ----------
 subprocess.check_call([sys.executable, "-m", "pip", "install", "-q", "faster-whisper"])
 
-# ---------- 1. find corpus ----------
-cand = []
-for pat in ["/kaggle/input/father-corpus/**/windows/*.wav", "/kaggle/input/father-corpus/**/*.wav"]:
-    cand += glob.glob(pat, recursive=True)
-cand = sorted(set(cand))
+# ---------- 1. find corpus (wait for dataset extraction, dump tree if lost) ----------
+cand, waited = [], 0
+while not cand and waited < 900:
+    for pat in ["/kaggle/input/**/father-corpus/**/*.wav", "/kaggle/input/**/*.wav"]:
+        cand += glob.glob(pat, recursive=True)
+    cand = sorted(set(cand))
+    if not cand:
+        if waited == 0:
+            listing = []
+            for root, dirs, fs in os.walk("/kaggle/input"):
+                for x in fs[:5]:
+                    listing.append(os.path.join(root, x))
+            say("PREP INPUT TREE: " + " | ".join(listing[:40])[:900])
+        time.sleep(60)
+        waited += 60
 prog(f"corpus wavs: {len(cand)}")
 
 # ---------- 2. Bengali -> Devanagari transliteration (character table) ----------
