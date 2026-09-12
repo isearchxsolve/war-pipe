@@ -216,35 +216,46 @@ for s, p, t in rows_new:
 prog("corpus resampled to 22.05k for training")
 
 def write_layout(variant):
+    # ljspeech semantics (from installed source): ID|anything|TEXT_USED, file at {root}/wavs/{ID}.wav
+    root = os.path.join(WORK, "xtts_ds22")
+    os.makedirs(os.path.join(root, "wavs"), exist_ok=True)
     paths = {}
     for tag in ("hi", "en"):
-        fp = os.path.join(WORK, f"metadata_{tag}_{variant}.csv")
+        fp = os.path.join(root, f"metadata_{tag}.csv")
+        n = 0
         with open(fp, "w", encoding="utf-8") as fh:
             for tg, p, t in RES:
                 if tg != tag:
                     continue
-                fh.write(f"{p}|{t}\n" if variant == "v2" else f"{p}|{t}|father\n")
+                uid = os.path.splitext(os.path.basename(p))[0]
+                fdst = os.path.join(root, "wavs", uid + ".wav")
+                if not os.path.exists(fdst):
+                    shutil.copy(p, fdst)
+                words = t.split()
+                txt = " ".join(words[:40])
+                if len(txt) > 190:
+                    txt = txt[:190]
+                fh.write(f"{uid}|.|{txt}\n")
+                n += 1
         paths[tag] = fp
-    return paths
+        prog(f"meta {tag}: {n} rows -> {fp}")
+    return paths, root
 
-V = {"v2": write_layout("v2"), "v3": write_layout("v3")}
+LAY, DSROOT = write_layout("ljs")
 
-def mkcfgs(lay):
+def mkcfgs():
     return [
-        BaseDatasetConfig(formatter="ljspeech", dataset_name="father_hi", path=ds_root, meta_file_train=lay["hi"], language="hi"),
-        BaseDatasetConfig(formatter="ljspeech", dataset_name="father_en", path=ds_root, meta_file_train=lay["en"], language="en"),
+        BaseDatasetConfig(formatter="ljspeech", dataset_name="father_hi", path=DSROOT, meta_file_train=LAY["hi"], language="hi"),
+        BaseDatasetConfig(formatter="ljspeech", dataset_name="father_en", path=DSROOT, meta_file_train=LAY["en"], language="en"),
     ]
 
 train_samples = eval_samples = None
-for lay_name in ("v2", "v3"):
-    try:
-        train_samples, eval_samples = load_tts_samples(mkcfgs(V[lay_name]), eval_split=True, eval_split_size=0.02)
-        prog(f"meta layout {lay_name} LOADED train={len(train_samples)} eval={len(eval_samples)}")
-        DATASETS = mkcfgs(V[lay_name])
-        break
-    except Exception as le:
-        say("TUNE LAYFAIL " + lay_name + " " + type(le).__name__ + " " + str(le)[:160])
-if train_samples is None:
+try:
+    train_samples, eval_samples = load_tts_samples(mkcfgs(), eval_split=True, eval_split_size=0.02)
+    prog(f"meta LOADED train={len(train_samples)} eval={len(eval_samples)}")
+    DATASETS = mkcfgs()
+except Exception as le:
+    say("TUNE LAYFAIL " + type(le).__name__ + " " + str(le)[:200])
     prog("FATAL no meta layout parsed")
     sys.exit(4)
 
@@ -252,7 +263,7 @@ if train_samples is None:
 model_args = GPTArgs(
     max_conditioning_length=264581,
     min_conditioning_length=13350,
-    debug_loading_failures=False,
+    debug_loading_failures=True,
     max_wav_length=264581,
     max_text_length=200,
     mel_norm_file=ME,
