@@ -202,20 +202,51 @@ def resample22():
             if ok:
                 rows_new.append((src, dst, t))
     prog(f"resample done rows={len(rows_new)} bad={bad}")
-    for tag in ("hi", "en"):
-        src = meta_hi if tag == "hi" else meta_en
-        with open(WORK + f"/metadata_{tag}_22.csv", "w", encoding="utf-8") as fh:
-            for s, p, t in rows_new:
-                if s == src:
-                    fh.write(f"{p}|{t}\n")
-resample22()
-meta_hi = WORK + "/metadata_hi_22.csv"
-meta_en = WORK + "/metadata_en_22.csv"
-DATASETS = [
-    BaseDatasetConfig(formatter="ljspeech", dataset_name="father_hi", path=ds_root, meta_file_train=meta_hi, language="hi"),
-    BaseDatasetConfig(formatter="ljspeech", dataset_name="father_en", path=ds_root, meta_file_train=meta_en, language="en"),
-]
+    return rows_new
+
+# ---------- 2c. inspect idiap ljspeech expectation + write BOTH layouts, load what parses ----------
+import inspect
+from TTS.tts.datasets import formatters as _FMT
+say("TUNE FMT " + inspect.getsource(_FMT.ljspeech)[:1400])
+
+rows_new = resample22()
+RES = []
+for s, p, t in rows_new:
+    RES.append(("hi" if s == meta_hi else "en", p, t))
 prog("corpus resampled to 22.05k for training")
+
+def write_layout(variant):
+    paths = {}
+    for tag in ("hi", "en"):
+        fp = os.path.join(WORK, f"metadata_{tag}_{variant}.csv")
+        with open(fp, "w", encoding="utf-8") as fh:
+            for tg, p, t in RES:
+                if tg != tag:
+                    continue
+                fh.write(f"{p}|{t}\n" if variant == "v2" else f"{p}|{t}|father\n")
+        paths[tag] = fp
+    return paths
+
+V = {"v2": write_layout("v2"), "v3": write_layout("v3")}
+
+def mkcfgs(lay):
+    return [
+        BaseDatasetConfig(formatter="ljspeech", dataset_name="father_hi", path=ds_root, meta_file_train=lay["hi"], language="hi"),
+        BaseDatasetConfig(formatter="ljspeech", dataset_name="father_en", path=ds_root, meta_file_train=lay["en"], language="en"),
+    ]
+
+train_samples = eval_samples = None
+for lay_name in ("v2", "v3"):
+    try:
+        train_samples, eval_samples = load_tts_samples(mkcfgs(V[lay_name]), eval_split=True, eval_split_size=0.02)
+        prog(f"meta layout {lay_name} LOADED train={len(train_samples)} eval={len(eval_samples)}")
+        DATASETS = mkcfgs(V[lay_name])
+        break
+    except Exception as le:
+        say("TUNE LAYFAIL " + lay_name + " " + type(le).__name__ + " " + str(le)[:160])
+if train_samples is None:
+    prog("FATAL no meta layout parsed")
+    sys.exit(4)
 
 # ---------- 3. model args (proven values from ruslan recipe) ----------
 model_args = GPTArgs(
@@ -269,8 +300,7 @@ config = GPTTrainerConfig(
 )
 
 model = GPTTrainer.init_from_config(config)
-train_samples, eval_samples = load_tts_samples(DATASETS, eval_split=True, eval_split_size=0.02)
-prog(f"train rows={len(train_samples)} eval rows={len(eval_samples)}")
+prog(f"trainer ready: train rows={len(train_samples)} eval rows={len(eval_samples)}")
 
 # ---------- 4. train ----------
 th = threading.Thread(target=progress_tail, daemon=True)
