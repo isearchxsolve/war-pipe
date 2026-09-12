@@ -14,8 +14,13 @@ DOORS = [
 ]
 HDRS = {"User-Agent": "kilo-corpus", "ngrok-skip-browser-warning": "1"}
 WORK = "/kaggle/working"
-WIN = 5.0          # seconds per window
+WIN = 10.0         # seconds per window - v4: longer windows keep prosody (fine-tune supports up to ~12s)
 SR = 24000
+# v4 gates (was v3: +-25% f0 around median, +-35% cent, mean+3sigma mfcc - kept only 3 pct of windows):
+F0_IN = (80.0, 175.0)   # Baba low male band; women/other callers mostly above 175 or outside
+CENT_TOL = 0.60         # +-60 pct around reference centroid
+MFCC_SIG = 6.0          # mean + 6 sigma mfcc distance
+RMS_MIN = 0.003
 
 def door():
     for c in DOORS:
@@ -126,8 +131,8 @@ REF_F0 = float(np.median(rf0))
 REF_CEN = float(np.median(rcen))
 REF_MF = np.median(np.vstack(rmf), axis=0)
 ref_d = [float(np.linalg.norm(m - REF_MF)) for m in rmf]
-CUT = float(np.mean(ref_d) + 3 * np.std(ref_d))
-prog(f"fingerprint: f0={REF_F0:.0f}Hz cent={REF_CEN:.0f}Hz mfcc_cut={CUT:.1f}")
+CUT = float(np.mean(ref_d) + MFCC_SIG * np.std(ref_d))
+prog(f"fingerprint v4: f0={REF_F0:.0f}Hz cent={REF_CEN:.0f}Hz mfcc_cut={CUT:.1f}")
 
 # ---------- 4. window, classify, keep Father ----------
 cordir = os.path.join(WORK, "father-corpus")
@@ -145,12 +150,12 @@ for wi, path in enumerate(wavs, 1):
     while st < dur - 0.5:
         y, sr = load_window(path, st, WIN)
         total_win += 1
-        if len(y) >= SR // 2 and np.sqrt(np.mean(y ** 2)) >= 0.005:
+        if len(y) >= SR // 2 and np.sqrt(np.mean(y ** 2)) >= RMS_MIN:
             try:
                 a, b, c = feats(y, sr)
             except Exception:
                 a = np.nan
-            if not np.isnan(a) and abs(a - REF_F0) <= 0.25 * REF_F0 and abs(b - REF_CEN) <= 0.35 * REF_CEN:
+            if not np.isnan(a) and F0_IN[0] <= a <= F0_IN[1] and abs(b - REF_CEN) <= CENT_TOL * REF_CEN:
                 d = float(np.linalg.norm(c - REF_MF))
                 if d <= CUT:
                     kept += 1

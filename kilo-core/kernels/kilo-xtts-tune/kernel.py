@@ -171,7 +171,7 @@ model_args = GPTArgs(
 audio_config = XttsAudioConfig(sample_rate=22050, dvae_sample_rate=22050, output_sample_rate=24000)
 
 config = GPTTrainerConfig(
-    epochs=40,
+    epochs=150,
     run_eval=True,
     output_path=OUT_PATH,
     model_args=model_args,
@@ -186,11 +186,11 @@ config = GPTTrainerConfig(
     eval_batch_size=2,
     num_loader_workers=4,
     eval_split_max_size=256,
-    print_step=200,
-    plot_step=1000,
-    log_model_step=1000,
-    save_step=150,
-    save_n_checkpoints=3,
+    print_step=50,
+    plot_step=500,
+    log_model_step=500,
+    save_step=100,
+    save_n_checkpoints=4,
     save_checkpoints=True,
     target_loss="loss",
     print_eval=True,
