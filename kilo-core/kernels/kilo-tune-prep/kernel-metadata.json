@@ -1,0 +1,14 @@
+{
+  "id": "kkk3213/kilo-tune-prep",
+  "title": "kilo-tune-prep",
+  "code_file": "kernel.py",
+  "language": "python",
+  "kernel_type": "script",
+  "is_private": true,
+  "enable_gpu": true,
+  "gpu_type": "NVIDIA_TESLA_T4_X2",
+  "enable_internet": true,
+  "dataset_sources": ["kkk3213/father-corpus"],
+  "competition_sources": [],
+  "kernel_sources": []
+}
