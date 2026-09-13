@@ -1,4 +1,4 @@
-# KILO-XTTS-TUNE v1 - FINE-TUNE XTTS v2 ON BABA'S VOICE CORPUS (Kaggle 2xT4, HEAVY WORK LAW)
+# KILO-XTTS-TUNE v10 - v9 CRASHED ON KAGGLE FALLBACK P100 (sm_60): image torch has no sm_60 kernels. v10 pins torch/torchaudio cu121 for legacy GPUs before any torch import.
 # Attaches: kkk3213/father-corpus (windows/*.wav + metadata_hi.csv + metadata_en.csv)
 #           tinthnhphm21022004/xtts-v2-pretrained (original model.pth/dvae/mel/vocab mirror)
 # Recipe proven from Kaggle fine-tune-xtts-v2 (ruslan): GPTTrainer + xtts_checkpoint preload.
@@ -7,6 +7,7 @@
 # final test wav chunked home (XTTS_CHUNK -> laptop player, two-entities law).
 import os, glob, json, time, threading, urllib.request, subprocess, sys, shutil
 
+os.environ.setdefault("CUDA_VISIBLE_DEVICES", "0")
 TOK = "GOLD24"
 DOOR = "https://retrain-schnapps-upbeat.ngrok-free.dev"
 HDRS = {"User-Agent": "kilo-tune", "ngrok-skip-browser-warning": "1"}
@@ -58,6 +59,18 @@ sys.excepthook = _hook
 t0 = time.time()
 prog("START xtts fine-tune")
 
+# ---------- -1. HARDWARE GATE: verify T4 before ANY install/download (Baba's law 2026-09-13) ----------
+smi = subprocess.run(["nvidia-smi", "--query-gpu=index,name,memory.total", "--format=csv,noheader"],
+                     capture_output=True, text=True).stdout.strip()
+prog("nvidia-smi: " + smi.replace("\n", " | "))
+import torch as _gate
+_gate_n = _gate.cuda.device_count()
+_gate_names = [_gate.cuda.get_device_name(i) for i in range(_gate_n)]
+prog(f"torch sees {_gate_n} GPU(s) (CUDA_VISIBLE_DEVICES={os.environ.get('CUDA_VISIBLE_DEVICES')}): {_gate_names}")
+assert _gate_n >= 1 and all("T4" in n.upper() for n in _gate_names), \
+    f"HARDWARE GATE FAIL: expected T4, got {_gate_names} - aborting before quota burn"
+prog(f"GATE PASS: {_gate_names}")
+
 # ---------- 0. install (py3.12-safe coqui fork, fallback original) ----------
 def pip(*args):
     return subprocess.call([sys.executable, "-m", "pip", "install", "-q"] + list(args))
@@ -71,6 +84,38 @@ except Exception:
         prog("installed coqui-tts (idiap fork)")
     else:
         pip("--ignore-requires-python", "coqui-tts")
+
+# ---------- 0b. sm_60 guard: Kaggle may hand us a P100 despite T4x2 request ----------
+def gpu_names():
+    try:
+        return subprocess.check_output(["nvidia-smi", "--query-gpu=name", "--format=csv,noheader"], text=True).strip()
+    except Exception:
+        return ""
+
+gpus = gpu_names()
+prog(f"GPUs: {gpus or 'none'}")
+if any(k in gpus for k in ("P100", "P40", "K80", "M40")):
+    prog(
+        "legacy sm_60 GPU -> pinning torch 2.5.1+cu121 (last build line with sm_60 kernels)"
+    )
+    rc = pip(
+        "torch==2.5.1+cu121",
+        "torchaudio==2.5.1+cu121",
+        "--index-url", "https://download.pytorch.org/whl/cu121",
+        "--extra-index-url", "https://pypi.org/simple",
+    )
+    prog(f"torch pin rc={rc}")
+    try:
+        import torch
+        prog(f"torch {torch.__version__} cuda={torch.version.cuda} devs={torch.cuda.device_count()}")
+        if torch.cuda.device_count() and torch.cuda.get_device_capability(0) < (6, 0):
+            say("TUNE ABORT capability below sm_60 unsupported")
+            sys.exit(5)
+    except SystemExit:
+        raise
+    except Exception as e:
+        say(f"TUNE TORCH PIN FAIL {type(e).__name__} {str(e)[:160]}")
+        sys.exit(6)
 def _resolve_imports():
     from TTS.tts.layers.xtts.trainer.gpt_trainer import GPTArgs, GPTTrainer, GPTTrainerConfig
     try:
@@ -279,27 +324,27 @@ model_args = GPTArgs(
 audio_config = XttsAudioConfig(sample_rate=22050, dvae_sample_rate=22050, output_sample_rate=24000)
 
 config = GPTTrainerConfig(
-    epochs=150,
+    epochs=40,
     run_eval=True,
     output_path=OUT_PATH,
     model_args=model_args,
     run_name="father-xtts",
     project_name="kilo-army",
-    run_description="GPT XTTS training - baba voice 100-percent fidelity",
+    run_description="GPT XTTS training - baba voice 90-percent track 40-ep no-chkpt",
     dashboard_logger="tensorboard",
     logger_uri=None,
     audio=audio_config,
-    batch_size=8,
-    batch_group_size=48,
-    eval_batch_size=2,
-    num_loader_workers=4,
+    batch_size=2,
+    batch_group_size=4,
+    eval_batch_size=1,
+    num_loader_workers=2,
     eval_split_max_size=256,
     print_step=50,
-    plot_step=500,
-    log_model_step=500,
+    plot_step=1000000,
+    log_model_step=1000000,
     save_step=100,
-    save_n_checkpoints=4,
-    save_checkpoints=True,
+    save_n_checkpoints=1,
+    save_checkpoints=False,
     target_loss="loss",
     print_eval=True,
     optimizer="AdamW",
@@ -318,7 +363,7 @@ th = threading.Thread(target=progress_tail, daemon=True)
 th.start()
 try:
     trainer = Trainer(
-        TrainerArgs(restore_path=None, skip_train_epoch=False, start_with_eval=False, grad_accum_steps=4),
+        TrainerArgs(restore_path=None, skip_train_epoch=False, start_with_eval=False, grad_accum_steps=8),
         config,
         output_path=OUT_PATH,
         model=model,
@@ -327,6 +372,22 @@ try:
     )
     trainer.fit()
     prog(f"fit() complete elapsed={int(time.time()-t0)}s")
+    try:
+        shutil.rmtree(WOK22, ignore_errors=True)
+        shutil.rmtree(os.path.join(WORK, "xtts_ds22"), ignore_errors=True)
+        prog("temp corpora deleted to free disk")
+    except Exception:
+        pass
+    try:
+        import torch
+        sd = model.state_dict()
+        gpt_sd = {k[len("xtts.gpt."):]: v for k, v in sd.items() if k.startswith("xtts.gpt.")}
+        if not gpt_sd:
+            gpt_sd = {k: v for k, v in sd.items() if ".gpt." in k}
+        torch.save(gpt_sd, OUT_PATH + "/father_last.pth")
+        prog(f"father_last.pth saved tensors={len(gpt_sd)} size={os.path.getsize(OUT_PATH + '/father_last.pth')}")
+    except Exception as se:
+        prog(f"SAVE FAIL {type(se).__name__} {str(se)[:160]}")
 except Exception as e:
     prog(f"TRAIN EXCEPTION {type(e).__name__} {str(e)[:200]}")
     raise

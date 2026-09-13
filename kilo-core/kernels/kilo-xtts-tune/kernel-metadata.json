@@ -6,7 +6,7 @@
   "kernel_type": "script",
   "is_private": true,
   "enable_gpu": true,
-  "gpu_type": "NVIDIA_TESLA_T4_X2",
+  "machine_shape": "NvidiaTeslaT4",
   "enable_internet": true,
   "dataset_sources": ["kkk3213/father-corpus", "tinthnhphm21022004/xtts-v2-pretrained"],
   "competition_sources": [],
