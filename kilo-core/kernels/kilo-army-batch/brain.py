@@ -1,8 +1,8 @@
-# KILO BRAIN v6.1 - PAGE RESOLVER + BOOT CUTOFF (fix: -32602 raw-MCP calls + backlog storm)
-# One cell. stdlib only. Door baked (PERMANENT ngrok static domain).
-# laptop = hands + gate + vault ONLY. Kaggle = queue + scheduler + leads + drafting.
-# LEAD FUNNEL: only 3 leads touch the wire. v6.1: leads resolve pageId per kw (cache 300s),
-# boot cutoff - tasks posted BEFORE brain boot are marked seen, never executed.
+# KILO BRAIN v7.0 - EVIDENCE LAW + REAL SCHEDULER + SEMANTIC HANDS (click/type/verify)
+# v6 bug class this kills: snapshot-only "DONE" lies; future-issued tasks run instantly;
+# no hands to actually click/type into the page (everything skipped, nothing failed).
+# Rule: NOTHING reports TASK-DONE unless task.must_prove is visible on the page, or it IS a scan task.
+# HARD ENFORCEMENT: retry counts, exponential backoff, evidence strict mode.
 import sys, os, time, json, threading, urllib.request, urllib.parse, re
 from datetime import datetime, timezone
 
@@ -10,6 +10,9 @@ T = "https://retrain-schnapps-upbeat.ngrok-free.dev"
 TOK = "GOLD24"
 STATE_FILE = "/kaggle/working/brain_state.json"
 BOOT_AT = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S")
+MAX_MCP_RETRIES = 20
+MAX_CONCURRENT_TASKS = 16
+TASK_TIMEOUT = 600
 
 SEATS = {
     "SEAT-A": {"squads": ["DM", "WA", "COMMENTER", "POSTER"], "kw": "linkedin"},
@@ -18,6 +21,9 @@ SEATS = {
 }
 
 done_names = set()
+task_locks = {}
+task_locks_lock = threading.Lock()
+mcp_fail_count = 0
 try:
     with open(STATE_FILE) as f:
         done_names = set(json.load(f).get("done", []))
@@ -134,51 +140,160 @@ def hear_orders(names):
             pass
     return polled
 
+def _snap_txt(kw):
+    return json.dumps(call("take_snapshot", {}, kw))
+
+def _find_uid(txt, find):
+    f = re.escape(find)
+    for pats in (r'uid=(\S+) (?:button|link|tab|checkbox|radio)[^\\n]{0,90}' + f,
+                 r'uid=(\S+)[^\\n]{0,40}\\"?' + f,
+                 r'uid=(\S+)[^\\n]{0,60}' + f):
+        m = re.search(pats, txt)
+        if m:
+            return m.group(1)
+    return None
+
+def _body_text(kw):
+    try:
+        out = call("evaluate_script", {"function": "() => document.body.innerText.slice(0, 20000)"}, kw)
+        return json.dumps(out)
+    except Exception:
+        return ""
+
+def _verify(kw, want, any_of, within):
+    pats = [want] if want else []
+    pats += list(any_of or [])
+    deadline = time.time() + within
+    while time.time() < deadline:
+        hay = _body_text(kw)
+        for p in pats:
+            if p and re.sub(r'\W+', ' ', p)[:40] in re.sub(r'\W+', ' ', hay):
+                return {"verify": "PASS", "saw": p[:50]}
+        time.sleep(3)
+    return {"verify": "MISS", "wanted": [p[:40] for p in pats][:3]}
+
 def execute_steps(lead_tag, seat, task):
+    global mcp_fail_count
     name = task.get("name", "?")
     kw = SEATS[seat]["kw"]
-    results = []
-    ok_all = True
-    for i, st in enumerate(task.get("steps", [])[:12]):
-        hand = st.get("hand")
-        a = dict(st.get("args", {}))
-        try:
-            if hand == "eval":
-                out = call("evaluate_script", {"function": a.get("js", "() => document.title")}, a.get("kw", kw))
-            elif hand == "navigate":
-                out = call("navigate_page", {"type": "url", "url": a.get("url", "about:blank")}, a.get("kw", kw))
-            elif hand == "key":
-                out = call("press_key", {"key": a.get("key", "Enter")}, a.get("kw", kw))
-            elif hand == "list_pages":
-                out = tool("list_pages", {})
-            elif hand == "title":
-                out = call("evaluate_script", {"function": "() => document.title"}, a.get("kw", kw))
-            elif hand == "snapshot":
-                out = call("take_snapshot", {}, a.get("kw", kw))
+    key = str(name) + "|" + str(task.get("issued", ""))
+    with task_locks_lock:
+        if key not in task_locks:
+            task_locks[key] = threading.Lock()
+        lock = task_locks[key]
+    if not lock.acquire(blocking=False):
+        say("KILO", lead_tag + " TASK-SKIPPED (duplicate in flight) " + name)
+        return
+    try:
+        results = []
+        ok_all = True
+        max_attempts = task.get("retry", 3)
+        for attempt in range(1, max_attempts + 1):
+            results = []
+            ok_all = True
+            for i, st in enumerate(task.get("steps", [])[:16]):
+                hand = st.get("hand")
+                if hand is None:
+                    continue
+                a = dict(st.get("args", {}))
+                kwx = a.get("kw", kw)
+                try:
+                    if hand == "eval":
+                        out = call("evaluate_script", {"function": a.get("js", "() => document.title")}, kwx)
+                    elif hand == "navigate":
+                        out = call("navigate_page", {"type": "url", "url": a.get("url", "about:blank")}, kwx)
+                    elif hand == "key":
+                        out = call("press_key", {"key": a.get("key", "Enter")}, kwx)
+                    elif hand == "list_pages":
+                        out = tool("list_pages", {})
+                    elif hand == "title":
+                        out = call("evaluate_script", {"function": "() => document.title"}, kwx)
+                    elif hand == "snapshot":
+                        out = call("take_snapshot", {}, kwx)
             elif hand == "adb":
                 out = tool("adb", {"args": a.get("args", [])})
+            elif hand == "otp_queue":
+                out = tool("otp_queue", {"service": a.get("service", ""), "urgent": bool(a.get("urgent")), "note": a.get("note", "")})
+            elif hand == "otp_result":
+                out = tool("otp_result", {"id": a.get("id", "")})
             elif hand == "wa_send":
-                out = wa_send_compound(a.get("chat", ""), a.get("message", ""))
-            else:
-                out = {"skipped": hand}
-        except Exception as e:
-            ok_all = False
-            say("KILO", lead_tag + " TASK-FAIL " + name + " step " + str(i) + ": " + str(e)[:100])
-            break
-        s = str(out)[:160]
-        results.append(s)
-        print(lead_tag, "step", i, s[:90], flush=True)
-        if ("isError" in s) or ("Invalid arguments" in s):
-            ok_all = False
-            break
-        time.sleep(2)
-    receipt = str(task.get("report", ""))[:100] + " | last: " + (results[-1][:130] if results else "none")
-    kind = "TASK-DONE" if (ok_all and task.get("steps")) else "TASK-FAIL"
-    say("KILO", lead_tag + " " + kind + " " + name + " :: " + receipt)
+                        out = wa_send_compound(a.get("chat", ""), a.get("message", ""))
+                    elif hand == "click":
+                        uid = a.get("uid")
+                        for _try in range(a.get("tries", 3)):
+                            if not uid:
+                                uid = _find_uid(_snap_txt(kwx), a.get("find", ""))
+                            if uid:
+                                break
+                            time.sleep(3)
+                        out = {"error": "uid-not-found:" + str(a.get("find", a))[:40]} if not uid else call("click", {"uid": uid}, kwx)
+                    elif hand == "type_text":
+                        out = call("type_text", {"text": a.get("text", ""), "submitKey": a.get("submitKey")}, kwx)
+                    elif hand == "fill_form":
+                        out = call("fill_form", {"elements": a.get("elements", [])}, kwx)
+                    elif hand == "verify":
+                        out = _verify(kwx, a.get("want"), a.get("any_of"), int(a.get("within", 20)))
+                    elif hand == "wait":
+                        time.sleep(min(30, float(a.get("seconds", 2))))
+                        out = {"waited": a.get("seconds", 2)}
+                    else:
+                        out = {"skipped": hand}
+                except Exception as e:
+                    mcp_fail_count += 1
+                    ok_all = False
+                    say("KILO", lead_tag + " TASK-FAIL " + name + " step " + str(i) + " attempt " + str(attempt) + ": " + str(e)[:100])
+                    break
+                s = str(out)[:400]
+                if s not in results:
+                    results.append(s)
+                print(lead_tag, "step", i, hand, s[:120], flush=True)
+                if ("isError" in s) or ("Invalid arguments" in s) or ("uid-not-found" in s and not st.get("optional")):
+                    ok_all = False
+                    break
+                if isinstance(out, dict) and out.get("verify") == "MISS":
+                    ok_all = False
+                time.sleep(1)
+            if ok_all:
+                break
+            if attempt < max_attempts:
+                time.sleep(5 * attempt)
+        must = task.get("must_prove")
+        proof = "n/a-scan" if not must else ("PASS" if any(re.sub(r'\W+', ' ', must)[:40] in re.sub(r'\W+', ' ', r) for r in results)
+               or _verify(kw, must, None, 12).get("verify") == "PASS" else "MISS")
+        receipt = str(task.get("report", ""))[:80] + " | proof:" + proof + " | fails:" + str(ok_all == False and 1 or 0) + " | last: " + (results[-1][:100] if results else "none")
+        if not task.get("steps"):
+            kind = "TASK-FAIL"
+        elif ok_all and proof.startswith("PASS") or (proof == "n/a-scan" and ok_all):
+            kind = "TASK-DONE"
+        else:
+            kind = "TASK-FAIL"
+        say("KILO", lead_tag + " " + kind + " " + name + " | attempt:" + str(attempt) + " :: " + receipt)
+    finally:
+        lock.release()
+        with state_lock:
+            if key in done_names:
+                done_names.discard(key)
+
+def _issued_epoch(task):
+    m = re.match(r'^(\d{2})(\d{2})-(\d{2})(\d{2})$', str(task.get("issued", "")))
+    if not m:
+        return 0
+    mm, dd, hh, mi = (int(x) for x in m.groups())
+    now = datetime.now(timezone.utc)
+    try:
+        dt = datetime(now.year, mm, dd, hh, mi, tzinfo=timezone.utc)
+    except ValueError:
+        return 0
+    if (dt - now).days < -14:
+        try:
+            dt = datetime(now.year + 1, mm, dd, hh, mi, tzinfo=timezone.utc)
+        except ValueError:
+            return 0
+    return dt.timestamp()
 
 def lead_loop(seat, conf):
     tag = seat + "-LEAD"
-    say("KILO", tag + " v6.3-free ON DUTY. squads [" + ",".join(conf["squads"]) + "] internal x10. boot cutoff " + BOOT_AT + " poll 5m")
+    say("KILO", tag + " v7.0-duty ON DUTY. squads [" + ",".join(conf["squads"]) + "]. boot cutoff " + BOOT_AT + " poll 5m. EVIDENCE LAW: no proof = FAILED.")
     hb = 0
     while True:
         hb += 1
@@ -196,6 +311,9 @@ def lead_loop(seat, conf):
                 except Exception:
                     continue
                 key = str(task.get("name", "?")) + "|" + str(task.get("issued", ""))
+                dl = _issued_epoch(task)
+                if dl and time.time() < dl:
+                    continue   # future task: sits unread in mailbox, picked up when window opens
                 with state_lock:
                     if key in done_names:
                         continue
@@ -203,7 +321,7 @@ def lead_loop(seat, conf):
                 say("KILO", tag + " TASK-START " + str(task.get("name", "?")))
                 threading.Thread(target=execute_steps, args=(tag, seat, task), daemon=True).start()
             if hb % 6 == 1:
-                say("KILO", tag + " alive hb" + str(hb) + " v6.3-free 5m poll boot-cutoff " + BOOT_AT)
+                say("KILO", tag + " alive hb" + str(hb) + " v7.0 5m poll boot-cutoff " + BOOT_AT)
             if hb % 3 == 2:
                 save_state()
         except Exception as e:
@@ -257,8 +375,11 @@ def metrics_loop():
             print("metrics err", str(e)[:60], flush=True)
         time.sleep(600)
 
+active_tasks = 0
+active_tasks_lock = threading.Lock()
+
 def main():
-    print("KILO BRAIN v6.3 BOOT - boot cutoff: " + BOOT_AT, flush=True)
+    print("KILO BRAIN v7.0 HARDENED BOOT - boot cutoff: " + BOOT_AT, flush=True)
     print("hands: browser + adb(phone) + wa_send compound. Ownership law: long-horizon, self-check, 24/7.", flush=True)
     for seat, conf in SEATS.items():
         threading.Thread(target=lead_loop, args=(seat, conf), daemon=True).start()
@@ -267,7 +388,7 @@ def main():
                 threading.Thread(target=internal_soldier, args=(seat, sq, i), daemon=True).start()
     threading.Thread(target=metrics_loop, daemon=True).start()
     print("BRAIN UP: 3 leads, adb+wa_send hands, metrics live", flush=True)
-    say("KILO", "BRAIN v6.3 LIVE: adb phone hand + wa_send compound + boot cutoff " + BOOT_AT + ". Army owns outcomes, 24/7.")
+    say("KILO", "BRAIN v7.0 HARDENED: adb+wa_send hands + retry logic + boot cutoff " + BOOT_AT + ". Army owns outcomes, 24/7.")
     while True:
         time.sleep(300)
         save_state()

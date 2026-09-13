@@ -260,6 +260,24 @@ for s, p, t in rows_new:
     RES.append(("hi" if s == meta_hi else "en", p, t))
 prog("corpus resampled to 22.05k for training")
 
+BAD_RANGES = [
+    (0x0600, 0x06FF), (0x0980, 0x09FF), (0x0A00, 0x0A7F), (0x0A80, 0x0AFF),
+    (0x0B00, 0x0B7F), (0x0B80, 0x0BFF), (0x0C00, 0x0C7F), (0x0C80, 0x0CFF),
+    (0x0D00, 0x0D7F), (0x0D80, 0x0DFF), (0x0E00, 0x0EFF), (0x1100, 0x11FF),
+    (0x3040, 0x30FF), (0x4E00, 0x9FFF), (0xAC00, 0xD7AF),
+]
+
+def script_ok(t, tag):
+    for ch in t:
+        o = ord(ch)
+        if tag == "hi":
+            ok = (0x0900 <= o <= 0x097F) or o < 0x0080 or o in (0x2018, 0x2019, 0x201C, 0x201D, 0x2026)
+        else:
+            ok = o < 0x0080 or o in (0x2018, 0x2019, 0x201C, 0x201D, 0x2026)
+        if not ok:
+            return False
+    return True
+
 def write_layout(variant):
     # ljspeech semantics (from installed source): ID|anything|TEXT_USED, file at {root}/wavs/{ID}.wav
     root = os.path.join(WORK, "xtts_ds22")
@@ -268,9 +286,13 @@ def write_layout(variant):
     for tag in ("hi", "en"):
         fp = os.path.join(root, f"metadata_{tag}.csv")
         n = 0
+        dropped = 0
         with open(fp, "w", encoding="utf-8") as fh:
             for tg, p, t in RES:
                 if tg != tag:
+                    continue
+                if not script_ok(t, tag):
+                    dropped += 1
                     continue
                 uid = os.path.splitext(os.path.basename(p))[0]
                 fdst = os.path.join(root, "wavs", uid + ".wav")
@@ -283,7 +305,7 @@ def write_layout(variant):
                 fh.write(f"{uid}|.|{txt}\n")
                 n += 1
         paths[tag] = fp
-        prog(f"meta {tag}: {n} rows -> {fp}")
+        prog(f"meta {tag}: {n} rows kept, {dropped} dropped (mixed-script UNK poison)")
     return paths, root
 
 LAY, DSROOT = write_layout("ljs")
