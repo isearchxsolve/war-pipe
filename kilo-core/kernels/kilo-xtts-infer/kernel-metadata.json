@@ -8,8 +8,8 @@
   "enable_gpu": true,
   "machine_shape": "NvidiaTeslaT4",
   "enable_internet": true,
-  "dataset_sources": ["kkk3213/father-corpus", "tinthnhphm21022004/xtts-v2-pretrained"],
+  "dataset_sources": ["kkk3213/father-corpus", "tinthnhphm21022004/xtts-v2-pretrained", "kkk3213/father-xtts"],
   "competition_sources": [],
-  "kernel_sources": ["kkk3213/kilo-xtts-tune"],
+  "kernel_sources": [],
   "model_sources": []
 }

@@ -60,20 +60,34 @@ def find(name):
     hits = glob.glob(f"/kaggle/input/**/{name}", recursive=True)
     return hits[0] if hits else None
 
-BEST = find("best_model.pth")
-CFG = find("config.json")
+BEST = find("father_last_fp16.pth") or find("father_last.pth") or find("best_model.pth")
+CFG = None
+for p in glob.glob("/kaggle/input/**/config.json", recursive=True):
+    if "father-xtts" in p:
+        CFG = p
+        break
+if CFG is None:
+    CFG = find("config.json")
 if not BEST or not CFG:
     say("INFER NO ARTIFACT - tree: " + " | ".join(glob.glob("/kaggle/input/*/*")[:30])[:900])
     sys.exit(2)
-run_dir = os.path.dirname(BEST)
-prog(f"best={BEST} cfg={CFG}")
 DV = find("dvae.pth")
 ME = find("mel_stats.pth")
 VO = find("vocab.json")
+if not (DV and ME and VO):
+    say("INFER MIRROR FILES MISSING dvae/mel/vocab")
+    sys.exit(2)
+# dataset mounts are READ-ONLY: assemble a writable run dir for load_checkpoint
+RUN = WORK + "/run"
+os.makedirs(RUN, exist_ok=True)
+shutil.copy(BEST, RUN + "/father_last.pth")
+shutil.copy(CFG, RUN + "/config.json")
 for src in (DV, ME, VO):
-    dst = os.path.join(run_dir, os.path.basename(src))
-    if not os.path.exists(dst):
-        shutil.copy(src, dst)
+    shutil.copy(src, os.path.join(RUN, os.path.basename(src)))
+BEST = RUN + "/father_last.pth"
+CFG = RUN + "/config.json"
+run_dir = RUN
+prog(f"best={BEST} cfg={CFG}")
 
 # ---------- 3. reference wav: first clean hi row of father-corpus ----------
 meta_hi_hits = [p for p in glob.glob("/kaggle/input/**/metadata_hi.csv", recursive=True) if "father" in p]
@@ -102,6 +116,7 @@ cfg.load_json(CFG)
 m = Xtts.init_from_config(cfg)
 m.load_checkpoint(cfg, checkpoint_path=BEST, checkpoint_dir=run_dir, use_deepspeed=False)
 m.cuda()
+m.half()
 m.eval()
 prog("model loaded")
 

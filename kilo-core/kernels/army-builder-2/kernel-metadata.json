@@ -1,0 +1,14 @@
+{
+ "id": "kunaldas3104/army-builder-2",
+ "title": "army-builder-2",
+ "code_file": "builder-2.py",
+ "language": "python",
+ "kernel_type": "script",
+ "is_private": true,
+ "enable_gpu": false,
+ "enable_tpu": false,
+ "enable_internet": true,
+ "dataset_sources": [],
+ "kernel_sources": [],
+ "competition_sources": []
+}

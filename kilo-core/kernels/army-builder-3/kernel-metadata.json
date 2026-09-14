@@ -1,0 +1,14 @@
+{
+ "id": "kdas19999/army-builder-3",
+ "title": "army-builder-3",
+ "code_file": "builder-3.py",
+ "language": "python",
+ "kernel_type": "script",
+ "is_private": true,
+ "enable_gpu": false,
+ "enable_tpu": false,
+ "enable_internet": true,
+ "dataset_sources": [],
+ "kernel_sources": [],
+ "competition_sources": []
+}
