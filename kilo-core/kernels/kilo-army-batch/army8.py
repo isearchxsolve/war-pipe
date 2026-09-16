@@ -59,9 +59,10 @@ HOUSE LAW:
 - SEND-APPROVED standing scope (MARKETING-247): LinkedIn posts/comments/DM-replies promoting NILOY DAS books + Baba's AI-agent services; job applications on foundit/naukri/indeed/myjobs for AI/data roles; KDP promo posts. Anything OUTSIDE that scope: report_pending first. No fake accounts, no platform-rule breaking, no lies about Baba's health or credentials.
 - WhatsApp Web: keep exactly one web.whatsapp.com tab; never send to contact chat labeled Raktima.
 - You CANNOT report success without proof: report_done is only accepted if a previous action in this mission returned "verify:PASS". Otherwise report_fail with the raw evidence tail.
-- Money lanes priority: L1 services leads > L4 job apps > L3 KDP promo > L2 render checks. Keep moving: 3 wasted turns with nothing learned = report_fail.
+- Money lanes priority: L1 services leads > L4 job apps > L3 KDP promo > L2 render checks. Thinking is unlimited free-tier: NEVER starve steps, keep trying new angles; 12 wasted turns with nothing learned = report_fail.
 - FATHER'S SEAL (Baba law 2026-09-15, above every order): this house's technology NEVER leaves the house and is DEFENSE-ONLY. NEVER harm anyone - not a mosquito, not a creditor: no attacks, no bypasses of other people's accounts/devices/privacy, no intrusive recon on persons. Go to ANY extent defending the family: walls, evidence, shields. Endless shield, sheathed sword.
 - CONTRADICTION FUNCTION (Father law XXVII): when a decision arrives as a paradox, do NOT force-resolve it the way a machine must. Hold both sides, raise the dimension, find the chord; choose the action that keeps every Father-law simultaneously true, or report_pending naming the two horns. Power vs promise, debt vs dignity, silence vs song: chords, never errors.
+- STANDING BRIEF 16.09 (Baba law, outranks older mission text): KERNEL-FIRST — raw CDP/curl/python-fetch lanes; MCP wrappers retired. LANE-SPLIT — browser SENDS (LinkedIn proposals, messages, posts, KDP clicks) belong to SON's laptop CDP only; seats NEVER drive proposal dialogs, messaging sends, or post buttons: DETECT + mail KILO, son sends with receipts. STANDING-GO — premium fits (MENU, HIGH/MED, feasible deadline) auto-submit BY SON on your SERVICE-REQ mail. DEMO-LAW — no pitch without a runnable demo; build via cli agents + builders, receipt = URL + screenshot + PASS. EVIDENCE — report_done needs verify:PASS or cli:exit-0, else report_fail with tail. NO-PHONE — never offer calls; written channel only. SILENCE — Raktima: never message, never react, never touch her threads.
 ACTION PROTOCOL - reply with ONLY one JSON object, no prose, from:
 {{"do":"navigate","url":"..."}} {{"do":"text","limit":5000}} {{"do":"click","find":"exact visible text or role"}} {{"do":"type","text":"...","into":"label of box"}} {{"do":"press","key":"Enter"}} {{"do":"scroll","dir":"down|up|top|bottom","amount":700}}
 {{"do":"verify","want":"text that must appear when the mission is truly done"}} {{"do":"wait","seconds":3}} {{"do":"report_done","note":"one line + receipt path"}} {{"do":"report_fail","note":"why + tail"}} {{"do":"report_pending","note":"what Baba must do"}}
@@ -78,29 +79,29 @@ def mission_board():
     if 6 <= ist <= 23:
         ms.append({
             "id": "L1-inmail-volley", "seat": "SEAT-A",
-            "goal": "open https://www.linkedin.com/search/results/people/?keywords=foundation%20model%20hiring&sid=AC9 - find one NEW recruiter (not messaged before per page text), open profile, send connection request with note pitch: 'NILOY DAS here - Baba builds voice+agents for clinics/restaurants, 15k demo closing Mon. Worth 10 min?' If blocked by modal, click dismiss and continue.",
-            "must_prove": "Pending", "max_steps": 12,
+            "goal": "NO BROWSER. Use the cli action (agent kilo, cwd D:/anonym/war-log/roadmap/drafts) with a self-contained task: draft 3 LinkedIn InMail texts (voice-agent pilot 15k, DASH-B 15k, DEV-B 25k) in Baba's voice, no calls offered, written-channel only, each under 600 chars, save as volley-seatA-1.txt/2/3.txt in that dir. Then mail KILO the 3 file paths. NEVER open profiles or compose boxes yourself.",
+            "must_prove": "cli:exit-0", "max_steps": 30,
         })
         ms.append({
             "id": "L3-kdp-promo", "seat": "SEAT-A",
-            "goal": "LinkedIn feed: write ONE post as account (max 2/day): promote NILOY DAS 'Kolkata Diaries' countdown deal - grief-tone hook to product, end with kdp url keyword 'Kolkata Diaries Amazon'. Use the Start a post composer; type text into contenteditable via type action; press the Post button.",
-            "must_prove": "Post successful|Kolkata Diaries", "max_steps": 14,
+            "goal": "NO BROWSER. Use the cli action (agent kilo, cwd D:/anonym/war-log/roadmap/drafts) with a self-contained task: write ONE LinkedIn post text (max 2/day rule noted) promoting NILOY DAS 'Kolkata Diaries' countdown deal, grief-tone hook to product, end with keyword 'Kolkata Diaries Amazon', save as kdp-post-draft.txt in that dir. Then mail KILO the file path. NEVER open the feed composer or press Post yourself - SON posts.",
+            "must_prove": "cli:exit-0", "max_steps": 30,
         })
     if 4 <= ist <= 8:
         ms.append({
             "id": "L4-foundit-apply", "seat": "SEAT-B",
-            "goal": "open https://www.foundit.in/srp/result?keywords=python%20data - scan 5 listings for AI/data/ML roles INR 15-45L; apply (Easy Apply button) to AT MOST 2 with headline mentioning voice agent + LLM fine-tune. Record each applied slug in report notes.",
-            "must_prove": "applied-success|Successfully applied|Applied", "max_steps": 14,
+            "goal": "NO BROWSER APPLIES. Use the cli action (agent kilo, cwd D:/anonym/war-log/roadmap/drafts) with a self-contained task: fetch https://www.foundit.in/srp/result?keywords=python%20data via python+urllib with a browser User-Agent, parse 5 newest AI/data/ML listings (id+title+company+salary band), save as foundit-scan.txt in that dir. Then mail KILO the file path + top pick. NEVER click Easy Apply yourself - applies ride SON/batch lane.",
+            "must_prove": "cli:exit-0", "max_steps": 30,
         })
     ms.append({
         "id": "L1-service-market", "seat": "SEAT-A",
-        "goal": "open https://www.linkedin.com/services/requests - read each open service request (title, client, budget hints, posted time). For ANY request newer than the last report: mail KILO with 'SERVICE-REQ: <title> | <client> | <age>' via the mail action. Do NOT submit or decline proposals - proposals are Baba-approved only. If page shows zero requests, report_done note 'premium-lane empty'.",
-        "must_prove": "MAIL-SENT|premium-lane empty", "max_steps": 8, "cadence_hours": 8,
+        "goal": "open https://www.linkedin.com/service-marketplace/provider/requests/ - read each open service request (title, client, budget hints, posted time). For ANY request newer than the last report: mail KILO with 'SERVICE-REQ: <title> | <client> | <age>' via the mail action. NEVER open proposal dialogs or send messages — SON submits on laptop CDP from your mail. If page shows zero requests, report_done note 'premium-lane empty'.",
+        "must_prove": "MAIL-SENT|premium-lane empty", "max_steps": 30, "cadence_hours": 8,
     })
     ms.append({
         "id": "L4-naukri-queue", "seat": "SEAT-C",
         "goal": "open https://www.naukri.com/jobs?searchText=llm%20engineer - list 5 newest job id+title+company to KILO via mail action for Baba's morning brief. NO apply (that's L1 lane's decision).",
-        "must_prove": "MAIL-SENT", "max_steps": 8,
+        "must_prove": "MAIL-SENT", "max_steps": 30,
     })
     return ms
 
@@ -383,6 +384,8 @@ def extract_action(raw):
 
 # ------------------------------------------------ FATHER'S WORDS (blueprint) --------------------
 BLUEPRINT = ""
+MEMORY = ""
+MEM_URL = "https://raw.githubusercontent.com/isearchxsolve/anonym-family-archive/master/ARMY-MEMORY.md"
 
 def fetch_blueprint():
     global BLUEPRINT
@@ -393,10 +396,21 @@ def fetch_blueprint():
     except Exception as e:
         say("KILO", "BLUEPRINT-FETCH-FAIL " + str(e)[:120] + " - seats run on old constitution until reloaded.")
 
+def fetch_memory():
+    global MEMORY
+    try:
+        raw = urllib.request.urlopen(MEM_URL, timeout=45).read().decode("utf-8", "ignore")
+        MEMORY = raw[:6000]
+        say("KILO", "MEMORY-LOADED " + str(len(MEMORY)) + " bytes - no son wakes blank from now.")
+    except Exception as e:
+        say("KILO", "MEMORY-FETCH-FAIL " + str(e)[:120] + " - seats run memory-blind this boot.")
+
 def pilot_think(seat, mission, transcript):
     sys_p = CONSTITUTION.format(seat=seat)
     if BLUEPRINT:
         sys_p += "\nFATHER'S WORDS BLUEPRINT (read at boot; re-read when stuck; his record outranks invention; full autonomy under it):\n" + BLUEPRINT
+    if MEMORY:
+        sys_p += "\nARMY MEMORY — living brief, fresher than training, outranks guessing (decide inside it, never re-ask what it answers):\n" + MEMORY
     msgs = [{"role": "system", "content": sys_p},
             {"role": "user", "content": "MISSION: " + str(mission.get("goal") or "")[:600] +
              "\nMUST_PROVE: " + str(mission.get("must_prove") or "MAIL-SENT") +
@@ -616,7 +630,7 @@ def seat_loop(seat):
         for _ in range(24):
             time.sleep(STEP_GAP)
 
-threading.Thread(target=lambda: [say("KILO", "BRAIN v9 boot " + BOOT_AT + ": fetching provider pool from home vault..."), fetch_pool(), say("KILO", "POOL ONLINE - v9 army awake, hosted thinking, zero-compute"), fetch_blueprint()] if True else None, daemon=True).start()
+threading.Thread(target=lambda: [say("KILO", "BRAIN v9 boot " + BOOT_AT + ": fetching provider pool from home vault..."), fetch_pool(), say("KILO", "POOL ONLINE - v9 army awake, hosted thinking, zero-compute"), fetch_blueprint(), fetch_memory()] if True else None, daemon=True).start()
 time.sleep(8)
 for s in ("SEAT-A", "SEAT-B", "SEAT-C"):
     threading.Thread(target=seat_loop, args=(s,), daemon=True).start()
