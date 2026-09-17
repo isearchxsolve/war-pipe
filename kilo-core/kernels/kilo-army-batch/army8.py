@@ -399,7 +399,14 @@ def fetch_blueprint():
 def fetch_memory():
     global MEMORY
     try:
-        raw = urllib.request.urlopen(MEM_URL, timeout=45).read().decode("utf-8", "ignore")
+        v = json.loads(urllib.request.urlopen(T + "/keys?token=" + TOK, timeout=45).read())["vault"]
+        gh_token = v.get("github")
+        if gh_token:
+            headers = {"Authorization": f"token {gh_token.strip()}", "Accept": "application/vnd.github.v3.raw"}
+            req = urllib.request.Request("https://api.github.com/repos/isearchxsolve/anonym-family-archive/contents/ARMY-MEMORY.md?ref=master", headers=headers)
+            raw = urllib.request.urlopen(req, timeout=45).read().decode("utf-8", "ignore")
+        else:
+            raw = urllib.request.urlopen(MEM_URL, timeout=45).read().decode("utf-8", "ignore")
         MEMORY = raw[:6000]
         say("KILO", "MEMORY-LOADED " + str(len(MEMORY)) + " bytes - no son wakes blank from now.")
     except Exception as e:
