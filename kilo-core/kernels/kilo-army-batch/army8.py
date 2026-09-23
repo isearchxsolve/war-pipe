@@ -641,5 +641,22 @@ threading.Thread(target=lambda: [say("KILO", "BRAIN v9 boot " + BOOT_AT + ": fet
 time.sleep(8)
 for s in ("SEAT-A", "SEAT-B", "SEAT-C"):
     threading.Thread(target=seat_loop, args=(s,), daemon=True).start()
+
+# BRAIN HEARTBEAT (Baba law 2026-09-19): emit BRAIN alive every cycle so KILO knows the mind is awake
+BRAIN_HB_FILE = "/kaggle/working/brain-heartbeat.txt"
+def brain_heartbeat():
+    while True:
+        try:
+            with open(BRAIN_HB_FILE, "w") as f:
+                f.write(datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"))
+        except Exception:
+            pass
+        # Fire-and-forget say - never blocks heartbeat
+        threading.Thread(target=lambda: say("KILO", "BRAIN v9 heartbeat " + datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ") + " pilots alive, pool " + str(len(POOL)) + " lanes"), daemon=True).start()
+        time.sleep(300)
+
+threading.Thread(target=brain_heartbeat, daemon=True).start()
+
+# Keep main thread alive so kernel stays RUNNING (daemon threads die when main exits)
 while True:
-    time.sleep(300)
+    time.sleep(3600)

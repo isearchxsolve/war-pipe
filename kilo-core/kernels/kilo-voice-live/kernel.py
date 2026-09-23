@@ -8,7 +8,7 @@ RELAY_FALLBACKS = [c.strip() for c in os.environ.get("RELAY_FALLBACKS", "https:/
 RELAY_TOKEN = os.environ.get("RELAY_TOKEN", "GOLD24")
 SELF_BODY = os.environ.get("SELF_BODY", "LIVE-VOICE")
 OUT_BODY = os.environ.get("OUT_BODY", "KILO")
-VOICE_REF = os.environ.get("VOICE_REF", "")
+VOICE_REF = os.environ.get("VOICE_REF", "father.wav")
 LANGUAGE = os.environ.get("LANGUAGE", "hi")
 POLL_SEC = int(os.environ.get("POLL_SEC", "20"))
 HEARTBEAT_EVERY = int(os.environ.get("HEARTBEAT_EVERY", "3"))
@@ -102,35 +102,44 @@ def find(name):
     hits = glob.glob(f"/kaggle/input/**/{name}", recursive=True)
     return hits[0] if hits else None
 
-BEST = find("father_last_fp16.pth") or find("father_last.pth") or find("best_model.pth")
-CFG = None
-for p in glob.glob("/kaggle/input/**/config.json", recursive=True):
-    if "father-xtts" in p:
-        CFG = p
-        break
-if CFG is None:
-    CFG = find("config.json")
-if not BEST or not CFG:
-    say("LIVE NO ARTIFACT - tree: " + " | ".join(glob.glob("/kaggle/input/*/*")[:30])[:900])
+# v7: skip fine-tuned (arch mismatch), go straight to pretrained XTTS-v2 + ref audio (zero-shot)
+pre_model_path = find("model.pth")
+pre_dvae = find("dvae.pth")
+pre_mel = find("mel_stats.pth")
+pre_vocab = find("vocab.json")
+if not (pre_model_path and pre_dvae and pre_mel and pre_vocab):
+    say("LIVE NO PRETRAINED FILES - tree: " + " | ".join(glob.glob("/kaggle/input/*/*")[:30])[:900])
     sys.exit(2)
-DV = find("dvae.pth")
-ME = find("mel_stats.pth")
-VO = find("vocab.json")
-if not (DV and ME and VO):
-    say("LIVE MIRROR FILES MISSING dvae/mel/vocab")
-    sys.exit(2)
-RUN = WORK + "/run"
-os.makedirs(RUN, exist_ok=True)
-shutil.copy(BEST, RUN + "/father_last.pth")
-shutil.copy(CFG, RUN + "/config.json")
-for src in (DV, ME, VO):
-    shutil.copy(src, os.path.join(RUN, os.path.basename(src)))
-BEST = RUN + "/father_last.pth"
-CFG = RUN + "/config.json"
-run_dir = RUN
-prog(f"best={BEST} cfg={CFG}")
 
-# ---------- 3. reference wav: VOICE_REF override, else first clean hi row of father-corpus ----------
+# find pretrained config
+pre_cfg_path = None
+for p in glob.glob("/kaggle/input/**/config.json", recursive=True):
+    if "xtts-v2" in p.lower() or "pretrained" in p.lower():
+        pre_cfg_path = p
+        break
+if not pre_cfg_path:
+    pre_cfg_path = find("config.json")
+
+pre_cfg = XttsConfig()
+pre_cfg.load_json(pre_cfg_path)
+m = Xtts.init_from_config(pre_cfg)
+m.load_checkpoint(pre_cfg, checkpoint_path=pre_model_path, checkpoint_dir=os.path.dirname(pre_model_path), use_deepspeed=False)
+m.cuda()
+m.half()
+m.eval()
+prog("loaded pretrained XTTS-v2 for zero-shot cloning with ref audio")
+BEST = pre_model_path
+CFG = pre_cfg_path
+run_dir = os.path.dirname(pre_model_path)
+
+# copy mirror files to run dir for load_checkpoint compatibility (skip same-file)
+for src in (pre_dvae, pre_mel, pre_vocab):
+    if src:
+        dst = os.path.join(run_dir, os.path.basename(src))
+        if os.path.abspath(src) != os.path.abspath(dst):
+            shutil.copy(src, dst)
+
+# ref audio
 ref = None
 if VOICE_REF:
     stem = os.path.splitext(os.path.basename(VOICE_REF))[0]
@@ -155,20 +164,12 @@ if ref is None:
     say("LIVE NO REF WAV")
     sys.exit(3)
 prog(f"ref={ref}")
-
-# ---------- 4. load fp16 + optional warm-up prime ----------
-cfg = XttsConfig()
-cfg.load_json(CFG)
-m = Xtts.init_from_config(cfg)
-m.load_checkpoint(cfg, checkpoint_path=BEST, checkpoint_dir=run_dir, use_deepspeed=False)
-m.cuda()
-m.half()
-m.eval()
-prog("model loaded")
+gpt_cond_latent, speaker_embedding = m.get_conditioning_latents(audio_path=[ref])
+prog("conditioning latents ready")
 
 import numpy as np
 import soundfile as sf
-SR = int(getattr(cfg, "output_sample_rate", 24000) or 24000)
+SR = int(getattr(pre_cfg, "output_sample_rate", 24000) or 24000)
 
 
 def log_lat(rec):
@@ -178,7 +179,9 @@ def log_lat(rec):
 
 
 def stream_chunks(text, lang, cond_len):
-    return m.inference_stream(text, lang, speaker_wav=ref, gpt_cond_len=cond_len,
+    return m.inference_stream(text, lang, gpt_cond_latent=gpt_cond_latent,
+                              speaker_embedding=speaker_embedding,
+                              gpt_cond_len=cond_len,
                               gpt_max_new_tokens=GPT_MAX_NEW, temperature=TEMPERATURE)
 
 
@@ -310,3 +313,4 @@ while True:
         print(beat, flush=True)
         say(beat)
     time.sleep(POLL_SEC)
+# v10 Baba run 2026-09-21: force new version for T4 seat
