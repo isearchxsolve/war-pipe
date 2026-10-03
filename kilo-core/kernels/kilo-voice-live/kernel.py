@@ -223,7 +223,7 @@ RETRY_SLEEP = float(os.environ.get("RETRY_SLEEP", "0.7"))
 # ---- STT ----
 STT_ON = os.environ.get("STT_ON", "1") == "1"
 STT_MODEL = os.environ.get("STT_MODEL", "small")   # v44: large-v3-turbo doubled STT load for no live-call gain; probe STT is already 198-327 ms
-STT_PROMPT = os.environ.get("STT_PROMPT", "Hello, clinic consultation. नमस्ते, क्लिनिक परामर्श।")
+STT_PROMPT = os.environ.get("STT_PROMPT", "")
 STT_BEAM = int(os.environ.get("STT_BEAM", "1"))
 STT_GPU = os.environ.get("STT_GPU", "")                    # "" -> GPU 1 if there are two GPUs, else GPU 0
 KEEP_HEAR = os.environ.get("KEEP_HEAR", "0") == "1"
@@ -606,7 +606,7 @@ sys.excepthook = _hook
 # ---------- 0. HARDWARE GATE (law 15) ----------
 smi = subprocess.run(["nvidia-smi", "--query-gpu=index,name,memory.total", "--format=csv,noheader"],
                      capture_output=True, text=True).stdout.strip()
-prog("KILO-VOICE-LIVE v87 live pass")
+prog("KILO-VOICE-LIVE v88 clean pass: single-word whitelist + zero-prompt STT")
 prog("nvidia-smi: " + smi.replace("\n", " | "))
 import torch as _gate
 import torch
@@ -2239,8 +2239,11 @@ def is_hallucination(text):
     about an appointment is safe.
     """
     toks = _norm_tokens(text)
-    if len(toks) < 2:
-        return True                        # a single word out of the room is never a question
+    if not toks:
+        return True
+    common_valid_single = {"hello", "hi", "hey", "नमस्ते", "नमस्कार", "सुनिए", "डॉक्टर", "डॉ", "doctor", "help", "मदद", "हाँ", "नहीं", "yes", "no", "ok", "okay", "baba", "kilo"}
+    if len(toks) == 1:
+        return toks[0] not in common_valid_single
     collapsed = [toks[0]]                  # collapse CONSECUTIVE repeats: a a a a -> [a]
     for w in toks[1:]:
         if w != collapsed[-1]:
