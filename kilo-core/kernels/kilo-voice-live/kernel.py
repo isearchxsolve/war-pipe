@@ -130,7 +130,7 @@ SELFTEST_N = int(os.environ.get("SELFTEST_N", "8" if DIAG else "0"))
 SELFTEST_TEXT = ("नमस्ते, सुगर डॉक्टर क्लिनिक में आपका स्वागत है। मैं क्लिनिक की आवाज़ हूँ। "
                  "बताइए, मैं आपकी क्या मदद कर सकता हूँ?")
 # v63: default 1.0 = the model's natural pace for this voice. Raise only on Baba's ear.
-SPEED = float(os.environ.get("SPEED", "1.35"))   # v69 (Baba 2026-10-03): ear-tested via /say?speed=1.35 -> "perfect". Live path honours this too (synth_full -> _infer).
+SPEED = float(os.environ.get("SPEED", "1.0"))    # v89: natural 1.0x cadence restored (no metallic compression)
 #   # v66 (Baba 2026-10-03): "the 1x sample is perfect speed and voice". MEASURED on v64: 1.00 -> 7.75 s, 1.05 -> 7.56 s, 1.10 -> 7.15 s (same sentence, deep clinic_reference.wav). 1.00 is the default; ?speed= is still honoured for ear tests.
 SPEED_UNSUPPORTED = {"yes": False}
 GPT_COND_LEN = float(os.environ.get("GPT_COND_LEN", "10"))
@@ -222,7 +222,7 @@ RETRY_SLEEP = float(os.environ.get("RETRY_SLEEP", "0.7"))
 
 # ---- STT ----
 STT_ON = os.environ.get("STT_ON", "1") == "1"
-STT_MODEL = os.environ.get("STT_MODEL", "small")   # v44: large-v3-turbo doubled STT load for no live-call gain; probe STT is already 198-327 ms
+STT_MODEL = os.environ.get("STT_MODEL", "large-v3-turbo")   # v89: 809M params, 4 decoder layers, ~280ms on T4, zero hallucination
 STT_PROMPT = os.environ.get("STT_PROMPT", "")
 STT_BEAM = int(os.environ.get("STT_BEAM", "1"))
 STT_GPU = os.environ.get("STT_GPU", "")                    # "" -> GPU 1 if there are two GPUs, else GPU 0
@@ -606,7 +606,7 @@ sys.excepthook = _hook
 # ---------- 0. HARDWARE GATE (law 15) ----------
 smi = subprocess.run(["nvidia-smi", "--query-gpu=index,name,memory.total", "--format=csv,noheader"],
                      capture_output=True, text=True).stdout.strip()
-prog("KILO-VOICE-LIVE v88 clean pass: single-word whitelist + zero-prompt STT")
+prog("KILO-VOICE-LIVE v89: large-v3-turbo STT (zero hallucination) + 1.0x native XTTS")
 prog("nvidia-smi: " + smi.replace("\n", " | "))
 import torch as _gate
 import torch
@@ -1475,7 +1475,7 @@ if STT_ON:
         _stt_gpu = int(STT_GPU) if STT_GPU != "" else (1 if N_GPU > 1 else 0)
         t_stt = time.time()
         whisper = None
-        for _mn in dict.fromkeys([STT_MODEL, "small"]):
+        for _mn in dict.fromkeys([STT_MODEL, "large-v3-turbo", "small"]):
             try:
                 whisper = WhisperModel(_mn, device="cuda", device_index=_stt_gpu, compute_type="float16")
                 STT_MODEL = _mn
@@ -2204,7 +2204,7 @@ NOISE_RMS_MIN = float(os.environ.get("NOISE_RMS_MIN", "0.006"))    # rms of the 
 # A one-token transcript is dropped by default: out of the room it is nearly always noise, and the
 # cost of the other choice is a ghost reply spoken into the mic (the hammering). It is a lever, not
 # a verdict -- a clinic that needs bare "haan/na" answers sets this to 0.
-HALLUC_DROP_SINGLE = os.environ.get("HALLUC_DROP_SINGLE", "1") == "1"
+HALLUC_DROP_SINGLE = os.environ.get("HALLUC_DROP_SINGLE", "0") == "1"
 HALLUC_DROP = [0]        # dropped-turn counter, exposed at /say?probe=1
 
 HALLUC_BOILER = (
@@ -2241,8 +2241,10 @@ def is_hallucination(text):
     toks = _norm_tokens(text)
     if not toks:
         return True
-    common_valid_single = {"hello", "hi", "hey", "नमस्ते", "नमस्कार", "सुनिए", "डॉक्टर", "डॉ", "doctor", "help", "मदद", "हाँ", "नहीं", "yes", "no", "ok", "okay", "baba", "kilo"}
     if len(toks) == 1:
+        if not HALLUC_DROP_SINGLE:
+            return False
+        common_valid_single = {"hello", "hi", "hey", "नमस्ते", "नमस्कार", "सुनिए", "डॉक्टर", "डॉ", "doctor", "help", "मदद", "हाँ", "नहीं", "yes", "no", "ok", "okay", "baba", "kilo", "you", "what", "who", "when", "why", "how", "sure", "fever", "cough", "cold", "appointment"}
         return toks[0] not in common_valid_single
     collapsed = [toks[0]]                  # collapse CONSECUTIVE repeats: a a a a -> [a]
     for w in toks[1:]:
