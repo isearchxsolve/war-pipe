@@ -17,8 +17,8 @@ import http.server
 import socketserver
 from contextlib import nullcontext
 
-RELAY_URL = os.environ.get("RELAY_URL", "https://kennedy-til-defend-artistic.trycloudflare.com")
-RELAY_FALLBACKS = [c.strip() for c in os.environ.get("RELAY_FALLBACKS", "https://retrain-schnapps-upbeat.ngrok-free.dev").split(",") if c.strip()]
+RELAY_URL = os.environ.get("RELAY_URL", "https://traveling-carlo-fine-breeds.trycloudflare.com")
+RELAY_FALLBACKS = [c.strip() for c in os.environ.get("RELAY_FALLBACKS", "https://kennedy-til-defend-artistic.trycloudflare.com,https://retrain-schnapps-upbeat.ngrok-free.dev").split(",") if c.strip()]
 RELAY_TOKEN = os.environ.get("RELAY_TOKEN", "GOLD24")
 SELF_BODY = os.environ.get("SELF_BODY", "LIVE-VOX1")
 OUT_BODY = os.environ.get("OUT_BODY", "KILO")
