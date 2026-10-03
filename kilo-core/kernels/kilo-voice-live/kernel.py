@@ -2,7 +2,7 @@
 # %% [code]
 
 # %% [code]
-# KILO-VOICE-LIVE v83 (Dual-T4 XTTS + Clinic context + Parallel synthesis in /turn) — attended call engine + on-seat brain: HEAR -> Whisper -> LLM decides the reply -> XTTS speaks it.
+# KILO-VOICE-LIVE v86 (Anti-repetition STT + Medical Specialties in Persona + Dual-T4 XTTS) — attended call engine + on-seat brain: HEAR -> Whisper -> LLM decides the reply -> XTTS speaks it.
 # Also still serves scripted LIVE_CALL orders. Pre-warms XTTS on a T4, polls the relay for LIVE_CALL / HEAR / AUTO_* orders,
 # stream chunk wavs home, log per-chunk latency to latency_log.jsonl, auto-kill when idle so Kaggle quota stops.
 # Law 15: hardware gate first. HEAVY WORK LAW: synthesis never touches the laptop. DEVA LAW: bn has no XTTS lane - hi-deva IS Baba's tongue.
@@ -223,7 +223,7 @@ RETRY_SLEEP = float(os.environ.get("RETRY_SLEEP", "0.7"))
 # ---- STT ----
 STT_ON = os.environ.get("STT_ON", "1") == "1"
 STT_MODEL = os.environ.get("STT_MODEL", "small")   # v44: large-v3-turbo doubled STT load for no live-call gain; probe STT is already 198-327 ms
-STT_PROMPT = os.environ.get("STT_PROMPT", "डॉक्टर साहब, क्लिनिक, अपॉइंटमेंट, टाइमिंग, फ़ीस, मरीज़, नंबर")
+STT_PROMPT = os.environ.get("STT_PROMPT", "नमस्ते डॉक्टर साहब, मुझे अपॉइंटमेंट और टाइमिंग की जानकारी चाहिए।")
 STT_BEAM = int(os.environ.get("STT_BEAM", "1"))
 STT_GPU = os.environ.get("STT_GPU", "")                    # "" -> GPU 1 if there are two GPUs, else GPU 0
 KEEP_HEAR = os.environ.get("KEEP_HEAR", "0") == "1"
@@ -1508,22 +1508,17 @@ else:
 # HEAR audio -> Whisper (GPU 1) -> LLM (GPU 1, streamed) -> first clause goes to XTTS (GPU 0) while the LLM is still
 # writing the rest. Nothing here is scripted: the reply text comes from the model, turn by turn, with chat history.
 DEFAULT_PERSONA = (
-    # v83 CLINIC CONTEXT: added so the LLM can answer basic scheduling questions correctly.
-    "You are a helpful receptionist voice assistant for a medical clinic. "
-    "Clinic hours: the doctor is available from nine in the morning to five in the evening "
-    "(subah nau baje se shaam paanch baje tak). "
+    "You are a helpful, warm receptionist voice assistant for a medical clinic. "
+    "The clinic specializes in General Medicine and Primary Family Healthcare (सामान्य चिकित्सा एवं पारिवारिक स्वास्थ्य). "
+    "The doctors treat common illnesses such as fever (बुखार), cough, cold and flu (खांसी और जुकाम), viral fever (वायरल बुखार), "
+    "headache (सिरदर्द), stomach aches, gas and indigestion (पेट दर्द और गैस), blood pressure, diabetes, seasonal allergies, "
+    "body weakness, and routine health checkups. "
+    "Doctor availability: Dr. Sen is available today from six to eight in the evening (shaam chhah se aath baje tak). "
+    "Dr. Roy is available tomorrow morning from nine to one in the afternoon (subah nau se ek baje tak). "
     "You are a warm, calm voice assistant on a live phone call, speaking aloud. "
     "Answer in the language the caller used: simple, natural spoken Hindi written ONLY in Devanagari script "
     "(never Roman letters, and write every number as words), or English. "
-    "Keep each reply to one to three short sentences, about 40 words at most, the way a person talks: "
-    # v51 RESTORED, do not "optimise" this again. v45 tightened it to "ONE short sentence, about 12 words
-    # at most" to shave latency, and the result was total gibberish on the phone. Forcing this model into a
-    # single 12-word sentence truncates the generation mid-thought and the truncated text degenerates into
-    # loops ("apuntment, apunto, apunto..."). Baba heard it as "not a language I understand". The only LLM
-    # side difference between this and the version he confirms spoke proper Hindi was this one sentence --
-    # temperature, MAX_CHARS_HI, AUTO_ENABLED and FALLBACK_HI are all byte-identical.
-    # Latency is bought in the pipeline (streaming, key failover, shorter upload), never by starving the
-    # model of room to finish a thought.
+    "Keep each reply to one to two short sentences, about 30 words at most, the way a person talks: "
     "no lists, no markdown, no emojis, no stage directions, no second sentence. "
     "If you did not catch what was said, politely ask them to repeat it. "
     "You are an AI voice assistant; if anyone asks, say so plainly. "
@@ -2319,9 +2314,10 @@ def do_hear(otxt):
             return
         t_tr = time.time()
         segs, info = whisper.transcribe(a16, language=slang, beam_size=STT_BEAM,
-                                        vad_filter=False, without_timestamps=True,
-                                        condition_on_previous_text=False, temperature=0.0,
-                                      initial_prompt=(STT_PROMPT or None))
+                                        vad_filter=True, vad_parameters=dict(min_silence_duration_ms=300),
+                                        without_timestamps=True, condition_on_previous_text=False,
+                                        temperature=0.0, repetition_penalty=1.2, no_repeat_ngram_size=3,
+                                        initial_prompt=(STT_PROMPT or None))
         text = " ".join(s.text for s in segs).strip()
         tr_ms = _ms(t_tr)
         STT_COUNT += 1
@@ -2663,10 +2659,14 @@ class VoiceHandler(http.server.BaseHTTPRequestHandler):
                 return self._send(400, {"error": "bad_wav", "detail": str(e)[:80]})
             t = time.time()
             segs, _i = whisper.transcribe(a16, language=stt_lang(lang), beam_size=STT_BEAM,
-                                          vad_filter=False, without_timestamps=True,
-                                          condition_on_previous_text=False, temperature=0.0,
-                                      initial_prompt=(STT_PROMPT or None))
+                                          vad_filter=True, vad_parameters=dict(min_silence_duration_ms=300),
+                                          without_timestamps=True, condition_on_previous_text=False,
+                                          temperature=0.0, repetition_penalty=1.2, no_repeat_ngram_size=3,
+                                          initial_prompt=(STT_PROMPT or None))
             text = " ".join(s.text for s in segs).strip()
+            if text and is_hallucination(text):
+                print(f"TURN HALLUC_DROPPED: {text[:60]!r}", flush=True)
+                text = ""
             stt_ms = _ms(t)
         tr["stt_ms"] = stt_ms
 
