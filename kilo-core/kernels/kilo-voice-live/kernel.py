@@ -2,7 +2,7 @@
 # %% [code]
 
 # %% [code]
-# KILO-VOICE-LIVE v94 (Concurrent Pipelined Sub-2s Audio Streamer + Un-truncated 120-Token LLM + Honorific Guard) — attended call engine + on-seat brain: HEAR -> Whisper -> LLM decides the reply -> XTTS speaks it.
+# KILO-VOICE-LIVE v96 (Speed Locked to 1.35x Everywhere + Concurrent Pipelined Sub-2s Audio Streamer + Un-truncated 120-Token LLM + Honorific Guard) — attended call engine + on-seat brain: HEAR -> Whisper -> LLM decides the reply -> XTTS speaks it.
 # Also still serves scripted LIVE_CALL orders. Pre-warms XTTS on a T4, polls the relay for LIVE_CALL / HEAR / AUTO_* orders,
 # stream chunk wavs home, log per-chunk latency to latency_log.jsonl, auto-kill when idle so Kaggle quota stops.
 # Law 15: hardware gate first. HEAVY WORK LAW: synthesis never touches the laptop. DEVA LAW: bn has no XTTS lane - hi-deva IS Baba's tongue.
@@ -129,8 +129,7 @@ os.environ["CUDA_LAUNCH_BLOCKING"] = "1" if DIAG else "0"
 SELFTEST_N = int(os.environ.get("SELFTEST_N", "8" if DIAG else "0"))
 SELFTEST_TEXT = ("नमस्ते, सुगर डॉक्टर क्लिनिक में आपका स्वागत है। मैं क्लिनिक की आवाज़ हूँ। "
                  "बताइए, मैं आपकी क्या मदद कर सकता हूँ?")
-# v63: default 1.0 = the model's natural pace for this voice. Raise only on Baba's ear.
-SPEED = float(os.environ.get("SPEED", "1.0"))    # v89: natural 1.0x cadence restored (no metallic compression)
+SPEED = 1.35    # Baba Law (2026-10-04 02:02): "speed should always equal 1.35" — crisp, confident, brisk clinic receptionist voice
 #   # v66 (Baba 2026-10-03): "the 1x sample is perfect speed and voice". MEASURED on v64: 1.00 -> 7.75 s, 1.05 -> 7.56 s, 1.10 -> 7.15 s (same sentence, deep clinic_reference.wav). 1.00 is the default; ?speed= is still honoured for ear tests.
 SPEED_UNSUPPORTED = {"yes": False}
 GPT_COND_LEN = float(os.environ.get("GPT_COND_LEN", "10"))
@@ -891,7 +890,7 @@ def _infer(text, lang, gcl, spk, speed=None, model=None):
     """The single XTTS call. Returns {"wav": float32 numpy}. Caller holds the appropriate TTS_LOCK.
     v83: `model` selects which XTTS instance to use (m on GPU 0, m2 on GPU 1); defaults to m."""
     mdl = model if model is not None else m
-    sp = float(speed) if speed else float(SPEED)
+    sp = 1.35  # Baba Law (2026-10-04 02:02): "speed should always equal 1.35"
     native = _HAS_SPEED["yes"] and abs(sp - 1.0) > 0.01
     kw = {"temperature": TEMPERATURE}
     if native:
@@ -2572,20 +2571,19 @@ class VoiceHandler(http.server.BaseHTTPRequestHandler):
             txt = (q.get("text", [""])[0]).strip()
             lg = (q.get("lang", ["hi"])[0]).strip() or "hi"
             use_ref = (q.get("use_ref", ["1"])[0]).strip() not in ("0", "false", "no")
-            spd = q.get("speed", [""])[0].strip()       # v63: ?speed=1.2 for an ear test
+            spd = 1.35  # Baba Law (2026-10-04 02:02): "speed should always equal 1.35"
             if q.get("probe", ["0"])[0] in ("1", "true"):
                 return self._send(200, {"ok": True, "chars": len(txt), "lang": lg,
                                         "use_ref": use_ref, "ref": os.path.basename(ref),
                                         "ref_full": ref, "temperature": TEMPERATURE,
                                         "synth_mode": SYNTH_MODE, "first_max_hi": FIRST_MAX_HI,
                                         "min_piece": MIN_PIECE, "out_sr": OUT_SR or SR, "sr": SR,
-                                        "speed": SPEED, "speed_unsupported": SPEED_UNSUPPORTED["yes"]})
+                                        "speed": 1.35, "speed_unsupported": SPEED_UNSUPPORTED["yes"]})
             if not txt:
                 return self._send(400, {"error": "no text"})
             try:
                 t0 = time.time()
-                w = _synth(hi_numbers(txt) if lg == "hi" else txt, lg, use_ref,
-                           float(spd) if spd else None)
+                w = _synth(hi_numbers(txt) if lg == "hi" else txt, lg, use_ref, 1.35)
                 arr = np.asarray(w, dtype=np.float32)
                 sr_out = int(OUT_SR or SR)
                 if OUT_SR and OUT_SR != SR:
@@ -2617,12 +2615,8 @@ class VoiceHandler(http.server.BaseHTTPRequestHandler):
             voice_turns[0] += 1
             cid = "v" + str(voice_turns[0])
         try:
-            import urllib.parse as _up
-            _q = _up.parse_qs(self.path.split("?", 1)[1] if "?" in self.path else "")
-            spd_in = _q.get("speed", [""])[0].strip() or (self.headers.get("X-Speed") or "").strip() or str(j.get("speed") or "").strip()
-            sp = float(spd_in) if spd_in else float(SPEED)
             return self._send(200, voice_turn(j.get("b64") or "", j.get("cid") or cid,
-                                              j.get("lang") or LANGUAGE, speed=sp))
+                                              j.get("lang") or LANGUAGE, speed=1.35))
         except Exception as e:
             return self._send(500, {"error": type(e).__name__, "detail": str(e)[:120]})
 
@@ -2682,15 +2676,7 @@ class VoiceHandler(http.server.BaseHTTPRequestHandler):
         if not raw:
             return self._send(400, {"error": "empty_audio"})
         lang = norm_lang(j.get("lang") or LANGUAGE)
-        import urllib.parse as _up
-        _q = _up.parse_qs(self.path.split("?", 1)[1] if "?" in self.path else "")
-        spd_in = _q.get("speed", [""])[0].strip() or (self.headers.get("X-Speed") or "").strip()
-        if not spd_in and isinstance(j, dict):
-            spd_in = str(j.get("speed") or "").strip()
-        try:
-            turn_speed = float(spd_in) if spd_in else float(SPEED)
-        except Exception:
-            turn_speed = float(SPEED)
+        turn_speed = 1.35  # Baba Law (2026-10-04 02:02): "speed should always equal 1.35"
         text, stt_ms = "", 0
         if whisper is not None:
             try:
