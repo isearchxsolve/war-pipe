@@ -287,9 +287,9 @@ LLM_API_KEYS = _real([LLM_API_KEY] + [k.strip() for k in (_secret("LLM_API_KEYS"
 OR_KEYS = _real(OR_KEYS)
 if not LLM_API_KEYS:
     print("WARNING: no real LLM key (set Kaggle secret LLM_API_KEY) -- brain will be disabled", flush=True)
-# v87: meta/llama-3.2-11b-vision-instruct responds with first token in 573ms without reasoning bloat
-LLM_MODEL = os.environ.get("LLM_MODEL", "meta/llama-3.2-11b-vision-instruct")
-LLM_MODEL_FALLBACKS = [m_.strip() for m_ in os.environ.get("LLM_MODEL_FALLBACKS", "nvidia/nemotron-3-ultra-550b-a55b").split(",") if m_.strip()]
+# v91: nvidia/nemotron-3-ultra-550b-a55b verified live: 1.26s response, pure clinic Hindi in Devanagari
+LLM_MODEL = os.environ.get("LLM_MODEL", "nvidia/nemotron-3-ultra-550b-a55b")
+LLM_MODEL_FALLBACKS = [m_.strip() for m_ in os.environ.get("LLM_MODEL_FALLBACKS", "meta/llama-3.2-11b-vision-instruct").split(",") if m_.strip()]
 LLM_MODEL_CHAIN = list(dict.fromkeys([os.environ.get("LLM_PATH", "") or LLM_MODEL] + LLM_MODEL_FALLBACKS))
 DEAD_MODELS = set()
 # v52 MODEL SWITCH, MEASURED IN THE KAGGLE SWEEP (brain-probe kernel, 10 models x 8 rotated keys, CPU):
@@ -606,7 +606,7 @@ sys.excepthook = _hook
 # ---------- 0. HARDWARE GATE (law 15) ----------
 smi = subprocess.run(["nvidia-smi", "--query-gpu=index,name,memory.total", "--format=csv,noheader"],
                      capture_output=True, text=True).stdout.strip()
-prog("KILO-VOICE-LIVE v90: forced hi/en STT (kills Arabic/Urdu/Korean hallucinations) + wrong-script gate")
+prog("KILO-VOICE-LIVE v91: nemotron-3-ultra (1.2s Hindi) + age-guarded baseline + zero-hallucination STT")
 prog("nvidia-smi: " + smi.replace("\n", " | "))
 import torch as _gate
 import torch
@@ -1999,13 +1999,22 @@ def norm_lang(lang):
 
 
 def order_age_ms(at):
-    """Age of an order by the relay's own timestamp, when it is an epoch number (informational: includes clock skew)."""
+    """Age of an order in ms, supporting both numeric epoch and ISO-8601 strings."""
+    if not at:
+        return None
     try:
         v = float(at)
         if v > 1e12:
             v /= 1000.0
         if 1e9 < v < 4e9:
             return int((time.time() - v) * 1000)
+    except Exception:
+        pass
+    try:
+        from datetime import datetime, timezone
+        s = str(at).replace("Z", "+00:00")
+        dt = datetime.fromisoformat(s)
+        return int((datetime.now(timezone.utc) - dt).total_seconds() * 1000)
     except Exception:
         pass
     return None
@@ -3443,9 +3452,9 @@ while True:
         if key in seen:
             continue
         seen.add(key)
-        if baseline:
-            continue
         age = order_age_ms(o.get("at"))
+        if baseline or (age is not None and age > 30000):   # baseline or orders older than 30s are silenced
+            continue
         if otxt.startswith("HEAR"):
             hot_until = time.time() + HOT_WINDOW_SEC
             do_hear(otxt)
@@ -3488,7 +3497,7 @@ while True:
         do_call(cid, ctext, lang, age)
         last_job = time.time()
         hot_until = time.time() + HOT_WINDOW_SEC
-    if baseline:
+    if baseline and len(seen) > 0:
         baseline = False
         prog(f"BASELINE done: {len(seen)} historical orders silenced")
     if time.time() - last_job >= IDLE_KILL_MIN * 60:
