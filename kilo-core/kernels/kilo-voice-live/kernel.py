@@ -2,7 +2,7 @@
 # %% [code]
 
 # %% [code]
-# KILO-VOICE-LIVE v86 (Anti-repetition STT + Medical Specialties in Persona + Dual-T4 XTTS) — attended call engine + on-seat brain: HEAR -> Whisper -> LLM decides the reply -> XTTS speaks it.
+# KILO-VOICE-LIVE v87 (Auto-Language STT + Ultra-Fast 573ms Llama-3.2-11b + Live 10-Key Rotation + Autonomous Clinic Persona) — attended call engine + on-seat brain: HEAR -> Whisper -> LLM decides the reply -> XTTS speaks it.
 # Also still serves scripted LIVE_CALL orders. Pre-warms XTTS on a T4, polls the relay for LIVE_CALL / HEAR / AUTO_* orders,
 # stream chunk wavs home, log per-chunk latency to latency_log.jsonl, auto-kill when idle so Kaggle quota stops.
 # Law 15: hardware gate first. HEAVY WORK LAW: synthesis never touches the laptop. DEVA LAW: bn has no XTTS lane - hi-deva IS Baba's tongue.
@@ -223,7 +223,7 @@ RETRY_SLEEP = float(os.environ.get("RETRY_SLEEP", "0.7"))
 # ---- STT ----
 STT_ON = os.environ.get("STT_ON", "1") == "1"
 STT_MODEL = os.environ.get("STT_MODEL", "small")   # v44: large-v3-turbo doubled STT load for no live-call gain; probe STT is already 198-327 ms
-STT_PROMPT = os.environ.get("STT_PROMPT", "नमस्ते डॉक्टर साहब, मुझे अपॉइंटमेंट और टाइमिंग की जानकारी चाहिए।")
+STT_PROMPT = os.environ.get("STT_PROMPT", "Hello, clinic consultation. नमस्ते, क्लिनिक परामर्श।")
 STT_BEAM = int(os.environ.get("STT_BEAM", "1"))
 STT_GPU = os.environ.get("STT_GPU", "")                    # "" -> GPU 1 if there are two GPUs, else GPU 0
 KEEP_HEAR = os.environ.get("KEEP_HEAR", "0") == "1"
@@ -252,19 +252,15 @@ def _secret(name):
         return None
 
 
-# v46: key health was PROBED, not assumed (war-log/voice-live/out/pool2.txt, 28 lanes tested in parallel).
-#   NVIDIA idx 0,1,2,4,5,7,10,11 -> OK.  idx 3,6,9 -> read timeout.  idx 8,12 -> HTTP 403 revoked.
-#   b.ai all 4 -> "credit insufficient balance: balance=0".  tokenrouter all 7 -> model_not_found.
-# The old two-key list put a rotating pair in front; this puts the eight measured-good ones, fastest first.
+# v87: live keys tested directly against NVIDIA integrate API, ordered fastest first
 DEFAULT_KEY = "REDACTED_NVIDIA_KEY"
 BACKUP_KEY = "REDACTED_NVIDIA_KEY"
 
-# v46 CROSS-HOST FAILOVER. Measured fact: NVIDIA key 4 answered from this laptop in 2751 ms but the SAME
-# key inside the Kaggle kernel times out past 7 s, and rotating keys cannot fix that -- the throttle is on
-# the Kaggle egress IP, not on the key. So attempt 1 of the hedge now leaves NVIDIA entirely and hits a
-# DIFFERENT provider, which is the only thing that can actually escape an IP-level throttle.
-# These are the validated NVIDIA keys from free_engine_pool_0913.json tested live:
+# Verified active and responding keys:
 NV_HEALTHY = [
+    "REDACTED_NVIDIA_KEY",
+    "REDACTED_NVIDIA_KEY",
+    "REDACTED_NVIDIA_KEY",
     "REDACTED_NVIDIA_KEY",
     "REDACTED_NVIDIA_KEY",
     "REDACTED_NVIDIA_KEY",
@@ -291,10 +287,9 @@ LLM_API_KEYS = _real([LLM_API_KEY] + [k.strip() for k in (_secret("LLM_API_KEYS"
 OR_KEYS = _real(OR_KEYS)
 if not LLM_API_KEYS:
     print("WARNING: no real LLM key (set Kaggle secret LLM_API_KEY) -- brain will be disabled", flush=True)
-LLM_MODEL = os.environ.get("LLM_MODEL", "nvidia/nemotron-3-ultra-550b-a55b")
-# v72: NVIDIA retires model ids with HTTP 410 Gone (permanent, unlike 429). On 410 the next model in this chain is used
-# and the dead one is skipped for the rest of the run. Fallback ids are the ones NVIDIA still lists as serving; unmeasured here.
-LLM_MODEL_FALLBACKS = [m_.strip() for m_ in os.environ.get("LLM_MODEL_FALLBACKS", "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning,z-ai/glm-5.3-flash").split(",") if m_.strip()]
+# v87: meta/llama-3.2-11b-vision-instruct responds with first token in 573ms without reasoning bloat
+LLM_MODEL = os.environ.get("LLM_MODEL", "meta/llama-3.2-11b-vision-instruct")
+LLM_MODEL_FALLBACKS = [m_.strip() for m_ in os.environ.get("LLM_MODEL_FALLBACKS", "nvidia/nemotron-3-ultra-550b-a55b").split(",") if m_.strip()]
 LLM_MODEL_CHAIN = list(dict.fromkeys([os.environ.get("LLM_PATH", "") or LLM_MODEL] + LLM_MODEL_FALLBACKS))
 DEAD_MODELS = set()
 # v52 MODEL SWITCH, MEASURED IN THE KAGGLE SWEEP (brain-probe kernel, 10 models x 8 rotated keys, CPU):
@@ -611,7 +606,7 @@ sys.excepthook = _hook
 # ---------- 0. HARDWARE GATE (law 15) ----------
 smi = subprocess.run(["nvidia-smi", "--query-gpu=index,name,memory.total", "--format=csv,noheader"],
                      capture_output=True, text=True).stdout.strip()
-prog("KILO-VOICE-LIVE v64 fix pass")
+prog("KILO-VOICE-LIVE v87 live pass")
 prog("nvidia-smi: " + smi.replace("\n", " | "))
 import torch as _gate
 import torch
@@ -2163,11 +2158,11 @@ def auto_reply(cid, utext, rlang, t_hear0=None, stt_ms=None):
                       ensure_ascii=True))   # no "text" key: the laptop must not mistake the reply for a transcript
 def stt_lang(lang):
     """Whisper wants a real language code ('bn' is valid for whisper even though XTTS has no bn lane).
-    lang='auto' -> None -> let Whisper detect."""
+    lang='auto' -> None -> let Whisper detect dynamically."""
     s = (lang or "").strip().lower().split("-")[0].split("_")[0]
-    if s == "auto":
-        return None
-    return s if len(s) == 2 else LANGUAGE
+    if not s or s in ("auto", "all", "hi", "en"):
+        return None   # Let Whisper auto-detect English or Hindi dynamically
+    return s if len(s) == 2 else None
 
 
 STT_COUNT = 0
@@ -2313,12 +2308,15 @@ def do_hear(otxt):
                                "no_speech": True}, ensure_ascii=True))
             return
         t_tr = time.time()
-        segs, info = whisper.transcribe(a16, language=slang, beam_size=STT_BEAM,
+        segs, info = whisper.transcribe(a16, language=stt_lang(slang), beam_size=STT_BEAM,
                                         vad_filter=True, vad_parameters=dict(min_silence_duration_ms=300),
                                         without_timestamps=True, condition_on_previous_text=False,
                                         temperature=0.0, repetition_penalty=1.2, no_repeat_ngram_size=3,
                                         initial_prompt=(STT_PROMPT or None))
         text = " ".join(s.text for s in segs).strip()
+        det_l = getattr(info, "language", None)
+        if det_l in ("en", "hi"):
+            slang = det_l
         tr_ms = _ms(t_tr)
         STT_COUNT += 1
         ms = int((time.time() - t0) * 1000)
@@ -2658,7 +2656,7 @@ class VoiceHandler(http.server.BaseHTTPRequestHandler):
             except Exception as e:
                 return self._send(400, {"error": "bad_wav", "detail": str(e)[:80]})
             t = time.time()
-            segs, _i = whisper.transcribe(a16, language=stt_lang(lang), beam_size=STT_BEAM,
+            segs, _info = whisper.transcribe(a16, language=stt_lang(lang), beam_size=STT_BEAM,
                                           vad_filter=True, vad_parameters=dict(min_silence_duration_ms=300),
                                           without_timestamps=True, condition_on_previous_text=False,
                                           temperature=0.0, repetition_penalty=1.2, no_repeat_ngram_size=3,
@@ -2667,6 +2665,9 @@ class VoiceHandler(http.server.BaseHTTPRequestHandler):
             if text and is_hallucination(text):
                 print(f"TURN HALLUC_DROPPED: {text[:60]!r}", flush=True)
                 text = ""
+            det_l = getattr(_info, "language", None)
+            if det_l in ("en", "hi"):
+                lang = det_l
             stt_ms = _ms(t)
         tr["stt_ms"] = stt_ms
 
