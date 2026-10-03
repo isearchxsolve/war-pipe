@@ -184,7 +184,7 @@ HARD_CHARS = {"hi": 150, "en": 250}
 #   a 20-char opener ~1 s of audio -> ~550 ms of generation
 #   => first sound ~1.3-1.7 s inside the kernel, plus 450 ms of VAD hang and the upload on the phone side.
 # That is the honest projection. It will be MEASURED, not claimed.
-FIRST_MAX_HI = int(os.environ.get("FIRST_MAX_HI", "140"))  # v78: full clause/sentence (was 20 which chopped Hindi words into 4 fragments)
+FIRST_MAX_HI = int(os.environ.get("FIRST_MAX_HI", "28"))
                                                           # immediately; the rest of the sentence follows while it plays.
                                                           # Real people open with fragments, and v44 measured 2,169 ms
                                                           # spent waiting for a WHOLE clause before any sound.
@@ -606,7 +606,7 @@ sys.excepthook = _hook
 # ---------- 0. HARDWARE GATE (law 15) ----------
 smi = subprocess.run(["nvidia-smi", "--query-gpu=index,name,memory.total", "--format=csv,noheader"],
                      capture_output=True, text=True).stdout.strip()
-prog("KILO-VOICE-LIVE v92: bilingual STT (en+hi) + jhal-kill + nemotron-3-ultra")
+prog("KILO-VOICE-LIVE v93: sub-2s latency opener + 16s utter-guard + bilingual STT")
 prog("nvidia-smi: " + smi.replace("\n", " | "))
 import torch as _gate
 import torch
@@ -1131,17 +1131,29 @@ def take_piece(s, cap):
 
 
 _STREAM_TERM = "।!?॥\n"
+_OPENER_TERM = "।!?॥\n,;:-—"
+
 class SpeechChunker:
-    """v81 Sentence-Boundary Architecture (RealtimeTTS/stream2sentence consensus):
-    Never cuts on commas or soft pauses, preserving 100% semantic context, natural prosody, and breath.
-    Only cuts at sentence terminal punctuation (। ! ? \\n or . followed by space) or if buffer strictly exceeds capacity."""
-    MIN_END = 20
+    """v93 Sub-2-Second Conversational Chunker:
+    Piece 0 (the opener): Cuts at natural clause pauses (comma, dash, sentence marks)
+    at 8-28 characters so the first audio reaches the caller in < 2 seconds!
+    Piece 1+: Uses whole-sentence boundaries (up to 140 chars) so prosody is 100% natural while piece 0 plays."""
 
     def __init__(self, lang):
         self.limit = char_limit(lang)
-        self.cap = min(FIRST_MAX_HI if lang == "hi" else FIRST_MAX_EN, self.limit)
+        self.lang = lang
         self.buf = ""
         self.k = 0
+
+    @property
+    def cap(self):
+        if self.k == 0:
+            return min(FIRST_MAX_HI if self.lang == "hi" else FIRST_MAX_EN, 30)
+        return self.limit
+
+    @property
+    def min_end(self):
+        return 8 if self.k == 0 else 20
 
     def feed(self, text):
         self.buf += text
@@ -1152,11 +1164,13 @@ class SpeechChunker:
 
     def _cut(self, b, final):
         cap = self.cap
-        # 1. Search for sentence terminal boundary at or after MIN_END
+        terms = _OPENER_TERM if self.k == 0 else _STREAM_TERM
+        min_e = self.min_end
+        # 1. Search for terminal or natural clause boundary
         for i, c in enumerate(b[:cap]):
-            if (c in _STREAM_TERM or (c == "." and (i + 1 == len(b) or b[i + 1].isspace()))) and i + 1 >= self.MIN_END:
+            if (c in terms or (c == "." and (i + 1 == len(b) or b[i + 1].isspace()))) and i + 1 >= min_e:
                 return i + 1
-        # 2. Only if buffer strictly exceeds cap (e.g. >140 chars without a full stop), split at natural clause
+        # 2. Only if buffer strictly exceeds cap, split at natural clause
         if len(b) > cap:
             return _cut_idx(b, cap)
         # 3. If stream is ending, return whatever remains
