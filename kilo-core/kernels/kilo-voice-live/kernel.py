@@ -606,7 +606,7 @@ sys.excepthook = _hook
 # ---------- 0. HARDWARE GATE (law 15) ----------
 smi = subprocess.run(["nvidia-smi", "--query-gpu=index,name,memory.total", "--format=csv,noheader"],
                      capture_output=True, text=True).stdout.strip()
-prog("KILO-VOICE-LIVE v89: large-v3-turbo STT (zero hallucination) + 1.0x native XTTS")
+prog("KILO-VOICE-LIVE v90: forced hi/en STT (kills Arabic/Urdu/Korean hallucinations) + wrong-script gate")
 prog("nvidia-smi: " + smi.replace("\n", " | "))
 import torch as _gate
 import torch
@@ -2157,12 +2157,16 @@ def auto_reply(cid, utext, rlang, t_hear0=None, stt_ms=None):
                        "llm_first_piece_ms": llm_first_ms, "first_ms": res.get("first_ms"), "e2e_first_ms": e2e},
                       ensure_ascii=True))   # no "text" key: the laptop must not mistake the reply for a transcript
 def stt_lang(lang):
-    """Whisper wants a real language code ('bn' is valid for whisper even though XTTS has no bn lane).
-    lang='auto' -> None -> let Whisper detect dynamically."""
+    """Force hi or en; never auto-detect.
+    v90 FIX: auto-detect caused Whisper to pick 'ur' (Urdu), 'ar' (Arabic), 'ko' (Korean) on
+    phone-quality audio, transcribing Hindi speech in Arabic script or Korean characters.
+    This is not a model quality issue -- it is a known Whisper auto-detect failure on short,
+    reverb-heavy audio. Forcing 'hi' keeps us in the Hindi/Devanagari tokenizer;
+    Whisper large-v3-turbo handles English utterances naturally within hi-mode."""
     s = (lang or "").strip().lower().split("-")[0].split("_")[0]
-    if not s or s in ("auto", "all", "hi", "en"):
-        return None   # Let Whisper auto-detect English or Hindi dynamically
-    return s if len(s) == 2 else None
+    if s == "en":
+        return "en"
+    return "hi"   # Force Hindi; never return None (auto-detect caused Arabic/Urdu/Korean outputs)
 
 
 STT_COUNT = 0
@@ -2240,6 +2244,12 @@ def is_hallucination(text):
     """
     toks = _norm_tokens(text)
     if not toks:
+        return True
+    # v90 WRONG-SCRIPT GATE: If the transcript contains Arabic/Urdu (\u0600-\u06FF),
+    # Korean (\uAC00-\uD7A3), Japanese (\u3040-\u30FF), or CJK (\u4E00-\u9FFF) characters
+    # while our clinic is Hindi+English, it is a cross-language Whisper hallucination.
+    _wrong_script = re.search(r"[\u0600-\u06FF\uAC00-\uD7A3\u3040-\u30FF\u4E00-\u9FFF]", text)
+    if _wrong_script:
         return True
     if len(toks) == 1:
         if not HALLUC_DROP_SINGLE:
