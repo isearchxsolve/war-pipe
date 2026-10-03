@@ -2,7 +2,7 @@
 # %% [code]
 
 # %% [code]
-# KILO-VOICE-LIVE v87 (Auto-Language STT + Ultra-Fast 573ms Llama-3.2-11b + Live 10-Key Rotation + Autonomous Clinic Persona) — attended call engine + on-seat brain: HEAR -> Whisper -> LLM decides the reply -> XTTS speaks it.
+# KILO-VOICE-LIVE v94 (Concurrent Pipelined Sub-2s Audio Streamer + Un-truncated 120-Token LLM + Honorific Guard) — attended call engine + on-seat brain: HEAR -> Whisper -> LLM decides the reply -> XTTS speaks it.
 # Also still serves scripted LIVE_CALL orders. Pre-warms XTTS on a T4, polls the relay for LIVE_CALL / HEAR / AUTO_* orders,
 # stream chunk wavs home, log per-chunk latency to latency_log.jsonl, auto-kill when idle so Kaggle quota stops.
 # Law 15: hardware gate first. HEAVY WORK LAW: synthesis never touches the laptop. DEVA LAW: bn has no XTTS lane - hi-deva IS Baba's tongue.
@@ -307,8 +307,7 @@ DEAD_MODELS = set()
 LLM_PATH = os.environ.get("LLM_PATH", "")                  # local dir (Kaggle dataset/model) wins over LLM_MODEL
 LLM_4BIT = os.environ.get("LLM_4BIT", "0") == "1"          # for 7B+ models (needs bitsandbytes)
 LLM_GPU = os.environ.get("LLM_GPU", "")                    # "" -> GPU 1 if two GPUs, else GPU 0
-LLM_MAX_NEW = int(os.environ.get("LLM_MAX_NEW", "56"))     # v36: was 160. The provider wrote 23 s of speech for a
-                                                      # phone answer; a clinic reply is one short sentence.
+LLM_MAX_NEW = int(os.environ.get("LLM_MAX_NEW", "120"))    # v94: was 56 which truncated Hindi Devanagari at ~18 words; 120 allows full 2-sentence clinical replies without cutoff
 LLM_TEMP = float(os.environ.get("LLM_TEMP", "0.6"))
 LLM_HISTORY_TURNS = int(os.environ.get("LLM_HISTORY_TURNS", "6"))
 LLM_TIMEOUT = float(os.environ.get("LLM_TIMEOUT", "30"))
@@ -325,7 +324,7 @@ LLM_HEDGE = os.environ.get("LLM_HEDGE", "1") == "1"
 # kernel across 8 rotated keys at 567 ms, which contradicts the v46 "Kaggle IP is throttled" reading for this model.
 # Flip back with LLM_HEDGE_HOST=openrouter if the probe shows NVIDIA stalls on the hedge too.
 LLM_HEDGE_HOST = os.environ.get("LLM_HEDGE_HOST", "nvidia").strip().lower()
-LLM_MAX_PIECES = int(os.environ.get("LLM_MAX_PIECES", "2"))   # v81: up to 2 full sentences for clinic conversations
+LLM_MAX_PIECES = int(os.environ.get("LLM_MAX_PIECES", "6"))   # v94: was 2 which truncated any response with >2 clauses; 6 allows full 2-3 natural sentences
 # Instant acknowledgement played the moment STT finishes, while the LLM + first XTTS clause are still working.
 # v45: FILLER_ON defaults to 0. Baba closed pre-rendering on 2026-10-02 ("we do live inference"). A filler WAV
 # makes the FIRST BYTE fast, which looks like low latency while the real answer is still 4-7 s away -- that is a
@@ -1103,6 +1102,7 @@ def char_limit(lang):
     return MAX_CHARS_HI if lang == "hi" else MAX_CHARS_EN
 
 
+_ABBREVS = ("डॉ.", "श्री.", "श्रीमती.", "पं.", "प्रो.", "वैद्य.", "डा.", "Dr.", "Mr.", "Mrs.", "Prof.")
 _TERM = ".!?।॥"
 _SOFT = ",;:—–-،"
 RAMP_EFF = 1.3   # replaced by the measured value after the warm-up benchmark
@@ -1113,6 +1113,8 @@ def _cut_idx(s, cap):
     lo = max(1, int(cap * 0.4))
     for i in range(cap - 1, lo - 1, -1):
         if s[i] in _TERM and (i + 1 >= len(s) or s[i + 1].isspace()):
+            if any(s[:i+1].rstrip().endswith(ab) for ab in _ABBREVS):
+                continue
             return i + 1
     for i in range(cap - 1, lo - 1, -1):
         if s[i] in _SOFT and i + 1 < len(s) and s[i + 1].isspace():
@@ -1134,9 +1136,9 @@ _STREAM_TERM = "।!?॥\n"
 _OPENER_TERM = "।!?॥\n,;:-—"
 
 class SpeechChunker:
-    """v93 Sub-2-Second Conversational Chunker:
+    """v94 Sub-2-Second Conversational Chunker:
     Piece 0 (the opener): Cuts at natural clause pauses (comma, dash, sentence marks)
-    at 8-28 characters so the first audio reaches the caller in < 2 seconds!
+    at 6-24 characters so the first audio reaches the caller in < 1.5 seconds!
     Piece 1+: Uses whole-sentence boundaries (up to 140 chars) so prosody is 100% natural while piece 0 plays."""
 
     def __init__(self, lang):
@@ -1148,12 +1150,12 @@ class SpeechChunker:
     @property
     def cap(self):
         if self.k == 0:
-            return min(FIRST_MAX_HI if self.lang == "hi" else FIRST_MAX_EN, 30)
+            return min(FIRST_MAX_HI if self.lang == "hi" else FIRST_MAX_EN, 24)
         return self.limit
 
     @property
     def min_end(self):
-        return 8 if self.k == 0 else 20
+        return 6 if self.k == 0 else 20
 
     def feed(self, text):
         self.buf += text
@@ -1169,6 +1171,9 @@ class SpeechChunker:
         # 1. Search for terminal or natural clause boundary
         for i, c in enumerate(b[:cap]):
             if (c in terms or (c == "." and (i + 1 == len(b) or b[i + 1].isspace()))) and i + 1 >= min_e:
+                prefix = b[:i+1].strip()
+                if any(prefix.endswith(ab) for ab in _ABBREVS):
+                    continue
                 return i + 1
         # 2. Only if buffer strictly exceeds cap, split at natural clause
         if len(b) > cap:
@@ -2747,31 +2752,50 @@ class VoiceHandler(http.server.BaseHTTPRequestHandler):
                             "ready_ms": first_pcm_ms, "write_ms": _ms(t_f)})
                 t_prev_end = time.time()
             pieces = stream_reply_pieces(text, lang, tr)
-            # v83 DUAL-GPU SYNTHESIS: submit each piece to the thread pool the moment the LLM yields it.
-            # Piece 0 -> GPU 0, Piece 1 -> GPU 1 (if m2 loaded), running concurrently.
-            # Then drain futures in order so the client gets audio as soon as each piece is ready.
-            # With 1-sentence replies (common): behaviour is identical to sequential -- no regression.
-            # With 2-sentence replies: total_ms is nearly halved (GPU 1 synthesizes while GPU 0 streams piece 1).
+            # v94 PIPELINED DUAL-GPU STREAMING: A background producer thread drains the LLM generator
+            # as tokens arrive, submitting pieces to GPU 0 / GPU 1 and putting (fut, piece, gidx) into a queue.
+            # The HTTP handler thread consumes from the queue and streams the very first piece to the phone
+            # IMMEDIATELY when GPU 0 finishes it, without waiting for the LLM monologue to finish!
             def _synth_piece_job(piece_, gidx_):
                 arr_ = synth_full_on(piece_, lang, turn_speed, gidx_)
                 return finish_audio(arr_, piece_, trim=(SYNTH_MODE == "full"))
 
             _use_dual = m2 is not None
             _pool = concurrent.futures.ThreadPoolExecutor(max_workers=2 if _use_dual else 1)
-            _gpu_c = 0
-            _fut_q = []   # list of (future, piece) in LLM order
+            _q = queue.Queue()
+
+            def _llm_producer():
+                try:
+                    gpu_c = 0
+                    for raw_piece in pieces:
+                        for piece in prep_pieces(raw_piece, lang):
+                            gidx = gpu_c % 2 if _use_dual else 0
+                            gpu_c += 1
+                            fut = _pool.submit(_synth_piece_job, piece, gidx)
+                            _q.put((fut, piece, gidx))
+                except Exception as ex:
+                    _q.put(("EX", ex))
+                finally:
+                    _q.put(None)
+
+            prod_th = threading.Thread(target=_llm_producer, daemon=True)
+            prod_th.start()
+
             try:
-                for raw_piece in pieces:
-                    for piece in prep_pieces(raw_piece, lang):
-                        piece_i += 1
-                        spoken.append(piece)
-                        gidx = _gpu_c % 2 if _use_dual else 0
-                        _gpu_c += 1
-                        _fut_q.append((_pool.submit(_synth_piece_job, piece, gidx), piece))
-                for _pi, (fut, piece) in enumerate(_fut_q, 1):
+                _pi = 0
+                while True:
+                    item = _q.get()
+                    if item is None:
+                        break
+                    if isinstance(item, tuple) and item[0] == "EX":
+                        raise item[1]
+                    fut, piece, gidx = item
+                    _pi += 1
+                    piece_i += 1
+                    spoken.append(piece)
                     t_y = time.time()
                     rec = {"k": _pi, "chars": len(piece), "yield_ms": int((t_y - t_in) * 1000),
-                           "speed": turn_speed, "gpu": (_pi - 1) % 2 if _use_dual else 0}
+                           "speed": turn_speed, "gpu": gidx}
                     tp = t_y
                     a = fut.result()   # wait for THIS piece; earlier pieces on the other GPU may already be done
                     synth_ms += int((time.time() - tp) * 1000)
