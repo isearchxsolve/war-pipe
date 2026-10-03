@@ -606,7 +606,7 @@ sys.excepthook = _hook
 # ---------- 0. HARDWARE GATE (law 15) ----------
 smi = subprocess.run(["nvidia-smi", "--query-gpu=index,name,memory.total", "--format=csv,noheader"],
                      capture_output=True, text=True).stdout.strip()
-prog("KILO-VOICE-LIVE v91: nemotron-3-ultra (1.2s Hindi) + age-guarded baseline + zero-hallucination STT")
+prog("KILO-VOICE-LIVE v92: bilingual STT (en+hi) + jhal-kill + nemotron-3-ultra")
 prog("nvidia-smi: " + smi.replace("\n", " | "))
 import torch as _gate
 import torch
@@ -2166,16 +2166,17 @@ def auto_reply(cid, utext, rlang, t_hear0=None, stt_ms=None):
                        "llm_first_piece_ms": llm_first_ms, "first_ms": res.get("first_ms"), "e2e_first_ms": e2e},
                       ensure_ascii=True))   # no "text" key: the laptop must not mistake the reply for a transcript
 def stt_lang(lang):
-    """Force hi or en; never auto-detect.
-    v90 FIX: auto-detect caused Whisper to pick 'ur' (Urdu), 'ar' (Arabic), 'ko' (Korean) on
-    phone-quality audio, transcribing Hindi speech in Arabic script or Korean characters.
-    This is not a model quality issue -- it is a known Whisper auto-detect failure on short,
-    reverb-heavy audio. Forcing 'hi' keeps us in the Hindi/Devanagari tokenizer;
-    Whisper large-v3-turbo handles English utterances naturally within hi-mode."""
+    """Bilingual STT: supports both English and Hindi.
+    If 'en', transcribe in English.
+    If 'hi', transcribe in Hindi.
+    If 'auto' or not specified, return None so Whisper transcribes either language naturally.
+    Cross-language hallucinations (Urdu, Arabic, Korean) are caught by the wrong-script gate below."""
     s = (lang or "").strip().lower().split("-")[0].split("_")[0]
     if s == "en":
         return "en"
-    return "hi"   # Force Hindi; never return None (auto-detect caused Arabic/Urdu/Korean outputs)
+    if s == "hi":
+        return "hi"
+    return None   # auto-detect English or Hindi naturally
 
 
 STT_COUNT = 0
@@ -2222,7 +2223,7 @@ HALLUC_DROP = [0]        # dropped-turn counter, exposed at /say?probe=1
 
 HALLUC_BOILER = (
     "thank you", "thanks for watching", "please subscribe", "subscribe", "amara.org",
-    "subtitle", "subtitles", "transcription by", "एमारा", "उपशीर्षक",
+    "subtitle", "subtitles", "transcription by", "एमारा", "उपशीर्षक", "झाल", "झाल झाल",
     "ご視聴", "ありがとうございました", "字幕", "시청해주셔서 감사합니다",
 )
 # NOTE: the "appointment"/"अपॉइंटमेंट" family is deliberately NOT in this list. A REAL clinic
@@ -2254,9 +2255,9 @@ def is_hallucination(text):
     toks = _norm_tokens(text)
     if not toks:
         return True
-    # v90 WRONG-SCRIPT GATE: If the transcript contains Arabic/Urdu (\u0600-\u06FF),
-    # Korean (\uAC00-\uD7A3), Japanese (\u3040-\u30FF), or CJK (\u4E00-\u9FFF) characters
-    # while our clinic is Hindi+English, it is a cross-language Whisper hallucination.
+    # Specifically catch the known Whisper noise token 'झाल'
+    if text.strip().replace("।", "").replace("?", "").replace(".", "").strip() in ("झाल", "झाल झाल"):
+        return True
     _wrong_script = re.search(r"[\u0600-\u06FF\uAC00-\uD7A3\u3040-\u30FF\u4E00-\u9FFF]", text)
     if _wrong_script:
         return True
