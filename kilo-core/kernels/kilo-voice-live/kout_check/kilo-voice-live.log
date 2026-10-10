@@ -1,0 +1,12 @@
+[{"stream_name":"stderr","time":1.4028994479999999,"data":"Traceback (most recent call last):\n"}
+,{"stream_name":"stderr","time":1.402966957,"data":"  File \"/kaggle/src/script.py\", line 451, in \u003cmodule\u003e\n"}
+,{"stream_name":"stderr","time":1.403262006,"data":"    for _i in range(max(1, SEND_THREADS)):\n"}
+,{"stream_name":"stderr","time":1.403342613,"data":"                           ^^^^^^^^^^^^\n"}
+,{"stream_name":"stderr","time":1.403557184,"data":"NameError: name 'SEND_THREADS' is not defined\n"}
+,{"stream_name":"stderr","time":3.584528575,"data":"/usr/local/lib/python3.12/dist-packages/mistune.py:435: SyntaxWarning: invalid escape sequence '\\|'\n"}
+,{"stream_name":"stderr","time":3.584554076,"data":"  cells[i][c] = re.sub('\\\\\\\\\\|', '|', cell)\n"}
+,{"stream_name":"stderr","time":3.899423531,"data":"/usr/local/lib/python3.12/dist-packages/nbconvert/filters/filter_links.py:36: SyntaxWarning: invalid escape sequence '\\_'\n"}
+,{"stream_name":"stderr","time":3.899450957,"data":"  text = re.sub(r'_', '\\_', text) # Escape underscores in display text\n"}
+,{"stream_name":"stderr","time":5.360366005,"data":"[NbConvertApp] Converting notebook __script__.ipynb to html\n"}
+,{"stream_name":"stderr","time":7.211269536,"data":"[NbConvertApp] Writing 1184907 bytes to __results__.html\n"}
+]
