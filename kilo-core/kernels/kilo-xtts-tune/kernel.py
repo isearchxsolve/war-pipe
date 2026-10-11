@@ -9,7 +9,7 @@ import os, glob, json, time, threading, urllib.request, subprocess, sys, shutil
 
 os.environ.setdefault("CUDA_VISIBLE_DEVICES", "0")
 TOK = "GOLD24"
-DOOR = "https://retrain-schnapps-upbeat.ngrok-free.dev"
+DOOR = "https://measurements-orlando-infections-meal.trycloudflare.com"
 HDRS = {"User-Agent": "kilo-tune", "ngrok-skip-browser-warning": "1"}
 WORK = "/kaggle/working"
 OUT_PATH = WORK + "/run"
@@ -74,6 +74,9 @@ prog(f"GATE PASS: {_gate_names}")
 # ---------- 0. install (py3.12-safe coqui fork, fallback original) ----------
 def pip(*args):
     return subprocess.call([sys.executable, "-m", "pip", "install", "-q"] + list(args))
+
+# Pin transformers to avoid 'isin_mps_friendly' import error on Python 3.13
+pip("transformers==4.40.0")
 
 inst = None
 try:
