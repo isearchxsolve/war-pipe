@@ -1,5 +1,5 @@
 {
-  "id": "kkk3213/kilo-worker",
+  "id": "isearchxsolve/kilo-worker",
   "title": "kilo-worker",
   "code_file": "kernel.py",
   "language": "python",
@@ -7,7 +7,7 @@
   "is_private": true,
   "enable_gpu": false,
   "enable_internet": true,
-  "dataset_sources": ["kkk3213/father-voice-raw"],
+  "dataset_sources": [],
   "competition_sources": [],
   "kernel_sources": []
 }
