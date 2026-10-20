@@ -9,7 +9,7 @@ import os, glob, json, time, threading, urllib.request, subprocess, sys, shutil
 
 os.environ.setdefault("CUDA_VISIBLE_DEVICES", "0")
 TOK = "GOLD24"
-DOOR = "https://fixtures-pixels-purchased-stick.trycloudflare.com"
+DOOR = "https://fathers-crowd-fraction-vatican.trycloudflare.com"
 HDRS = {"User-Agent": "kilo-tune", "ngrok-skip-browser-warning": "1"}
 WORK = "/kaggle/working"
 OUT_PATH = WORK + "/run"

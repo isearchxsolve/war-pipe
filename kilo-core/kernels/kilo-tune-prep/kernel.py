@@ -7,7 +7,10 @@
 import os, glob, json, time, urllib.request, subprocess, sys
 
 TOK = "GOLD24"
-DOORS = ["https://retrain-schnapps-upbeat.ngrok-free.dev"]
+DOORS = [
+    "https://fathers-crowd-fraction-vatican.trycloudflare.com",
+    "https://retrain-schnapps-upbeat.ngrok-free.dev",
+]
 HDRS = {"User-Agent": "kilo-prep", "ngrok-skip-browser-warning": "1"}
 WORK = "/kaggle/working"
 

