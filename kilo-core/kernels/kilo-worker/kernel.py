@@ -12,9 +12,10 @@ try:
     
     TOK = "GOLD24"
     DOORS = [
-        "https://demand-florist-allowance-basket.trycloudflare.com",
+        "https://fields-accomplish-growth-spin.trycloudflare.com",
         "https://retrain-schnapps-upbeat.ngrok-free.dev",
         "https://phantom-analytical-gains-curious.trycloudflare.com",
+        "https://demand-florist-allowance-basket.trycloudflare.com",
     ]
     HDRS = {"User-Agent": "kilo-corpus", "ngrok-skip-browser-warning": "1"}
     WORK = "/kaggle/working"
@@ -180,7 +181,7 @@ import os, sys, json, time, base64, hashlib, subprocess, urllib.request
 
 TOK = "GOLD24"
 DOORS = [
-    "https://fathers-crowd-fraction-vatican.trycloudflare.com",
+    "https://fields-accomplish-growth-spin.trycloudflare.com",
     "https://retrain-schnapps-upbeat.ngrok-free.dev",
     "https://demand-florist-allowance-basket.trycloudflare.com",
     "https://phantom-analytical-gains-curious.trycloudflare.com",
