@@ -258,31 +258,19 @@ def _secret(name):
         return None
 
 
-# v87: live keys tested directly against NVIDIA integrate API, ordered fastest first
-DEFAULT_KEY = "REDACTED_NVIDIA_KEY"
-BACKUP_KEY = "REDACTED_NVIDIA_KEY"
+# v87: live keys loaded dynamically from Kaggle secrets or environment variables
+DEFAULT_KEY = get_secret("NVIDIA_API_KEY") or os.environ.get("NVIDIA_API_KEY", "")
+BACKUP_KEY = get_secret("NVIDIA_API_BACKUP_KEY") or os.environ.get("NVIDIA_API_BACKUP_KEY", "")
 
-# Verified active and responding keys:
-NV_HEALTHY = [
-    "REDACTED_NVIDIA_KEY",
-    "REDACTED_NVIDIA_KEY",
-    "REDACTED_NVIDIA_KEY",
-    "REDACTED_NVIDIA_KEY",
-    "REDACTED_NVIDIA_KEY",
-    "REDACTED_NVIDIA_KEY",
-    "REDACTED_NVIDIA_KEY",
-    "REDACTED_NVIDIA_KEY",
-    "REDACTED_NVIDIA_KEY",
-    "REDACTED_NVIDIA_KEY",
-]
+# Healthy NVIDIA API keys loaded dynamically from environment or Kaggle secrets
+NV_HEALTHY = [k.strip() for k in (os.environ.get("NV_HEALTHY", "") or "").split(",") if k.strip()]
+if not NV_HEALTHY and DEFAULT_KEY:
+    NV_HEALTHY.append(DEFAULT_KEY)
 NV_DEAD = set()
 # OpenRouter is a different host, so it is not subject to NVIDIA's Kaggle-IP throttle.
 OR_BASE = os.environ.get("OR_BASE", "https://openrouter.ai/api/v1/chat/completions")
 OR_MODEL = os.environ.get("OR_MODEL", "nvidia/nemotron-3.5-lightning:free")
-OR_KEYS = [k.strip() for k in (os.environ.get("OR_KEYS", "") or "").split(",") if k.strip()] or [
-    "REDACTED_OPENROUTER_KEY",
-    "REDACTED_OPENROUTER_KEY",
-]
+OR_KEYS = [k.strip() for k in (os.environ.get("OR_KEYS", "") or "").split(",") if k.strip()]
 OR_HEADERS_EXTRA = {"HTTP-Referer": "https://kilo.army", "X-Title": "kilo-voice-live"}
 
 # Optional comma-separated list. Attempt 0 uses key 0, the hedged attempt uses key 1 (if there is one).

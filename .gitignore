@@ -1,7 +1,17 @@
-﻿
 # commit_dirty hygiene - build artifacts are never committed
 node_modules/
 __pycache__/
 *.pyc
 .tmp_*
-
+*.bak
+*.bak.py
+*.bak.*
+api_keys.json
+keyrouter_keys.txt
+omega_keys.json
+pull-*/
+versions/
+.env
+.env.*
+*.key
+*.token

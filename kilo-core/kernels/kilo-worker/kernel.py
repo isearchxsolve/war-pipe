@@ -12,6 +12,7 @@ try:
     
     TOK = "GOLD24"
     DOORS = [
+        "https://definitely-screenshot-butler-temp.trycloudflare.com",
         "https://fields-accomplish-growth-spin.trycloudflare.com",
         "https://retrain-schnapps-upbeat.ngrok-free.dev",
         "https://phantom-analytical-gains-curious.trycloudflare.com",
