@@ -12,11 +12,11 @@ try:
     
     TOK = "GOLD24"
     DOORS = [
+        "https://adjacent-award-replies-chronicles.trycloudflare.com",
+        "https://federal-consultation-sponsor-enormous.trycloudflare.com",
         "https://definitely-screenshot-butler-temp.trycloudflare.com",
         "https://fields-accomplish-growth-spin.trycloudflare.com",
-        "https://retrain-schnapps-upbeat.ngrok-free.dev",
         "https://phantom-analytical-gains-curious.trycloudflare.com",
-        "https://demand-florist-allowance-basket.trycloudflare.com",
     ]
     HDRS = {"User-Agent": "kilo-corpus", "ngrok-skip-browser-warning": "1"}
     WORK = "/kaggle/working"

