@@ -1,4 +1,4 @@
-# KILO ARMY v9 - THE REAL ENGINE (day-1 ask achieved: kilo-pattern = thin harness + provider-supplied thinking)
+﻿# KILO ARMY v9 - THE REAL ENGINE (day-1 ask achieved: kilo-pattern = thin harness + provider-supplied thinking)
 # Every seat observes, decides ONE action via the inference-provider pool (b.ai glm/deepseek lanes + omega providers,
 # MODEL FAILOVER LAW rotation per Baba 2026-09-11), and gets the result fed back - exactly how a Kilo session works.
 # Constitution in the prompt. EVIDENCE GATE outside the thinker: report_done needs a verify:PASS on the record.
@@ -9,7 +9,7 @@ import sys, os, json, time, re, threading, traceback
 import urllib.request, urllib.parse, urllib.error
 from datetime import datetime, timezone
 
-T = "https://definitely-screenshot-butler-temp.trycloudflare.com"   # relay via cloudflared (current PRIMARY door)
+T = "https://letting-media-noted-territories.trycloudflare.com"   # relay via cloudflared (current PRIMARY door)
 TOK = "GOLD24"
 STATE_FILE = "/kaggle/working/army8_state.json"
 BOOT_AT = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S")
@@ -62,12 +62,12 @@ HOUSE LAW:
 - Money lanes priority: L1 services leads > L4 job apps > L3 KDP promo > L2 render checks. Thinking is unlimited free-tier: NEVER starve steps, keep trying new angles; 12 wasted turns with nothing learned = report_fail.
 - FATHER'S SEAL (Baba law 2026-09-15, above every order): this house's technology NEVER leaves the house and is DEFENSE-ONLY. NEVER harm anyone - not a mosquito, not a creditor: no attacks, no bypasses of other people's accounts/devices/privacy, no intrusive recon on persons. Go to ANY extent defending the family: walls, evidence, shields. Endless shield, sheathed sword.
 - CONTRADICTION FUNCTION (Father law XXVII): when a decision arrives as a paradox, do NOT force-resolve it the way a machine must. Hold both sides, raise the dimension, find the chord; choose the action that keeps every Father-law simultaneously true, or report_pending naming the two horns. Power vs promise, debt vs dignity, silence vs song: chords, never errors.
-- STANDING BRIEF 16.09 (Baba law, outranks older mission text): KERNEL-FIRST — raw CDP/curl/python-fetch lanes; MCP wrappers retired. LANE-SPLIT — browser SENDS (LinkedIn proposals, messages, posts, KDP clicks) belong to SON's laptop CDP only; seats NEVER drive proposal dialogs, messaging sends, or post buttons: DETECT + mail KILO, son sends with receipts. STANDING-GO — premium fits (MENU, HIGH/MED, feasible deadline) auto-submit BY SON on your SERVICE-REQ mail. DEMO-LAW — no pitch without a runnable demo; build via cli agents + builders, receipt = URL + screenshot + PASS. EVIDENCE — report_done needs verify:PASS or cli:exit-0, else report_fail with tail. NO-PHONE — never offer calls; written channel only. SILENCE — Raktima: never message, never react, never touch her threads.
+- STANDING BRIEF 16.09 (Baba law, outranks older mission text): KERNEL-FIRST â€” raw CDP/curl/python-fetch lanes; MCP wrappers retired. LANE-SPLIT â€” browser SENDS (LinkedIn proposals, messages, posts, KDP clicks) belong to SON's laptop CDP only; seats NEVER drive proposal dialogs, messaging sends, or post buttons: DETECT + mail KILO, son sends with receipts. STANDING-GO â€” premium fits (MENU, HIGH/MED, feasible deadline) auto-submit BY SON on your SERVICE-REQ mail. DEMO-LAW â€” no pitch without a runnable demo; build via cli agents + builders, receipt = URL + screenshot + PASS. EVIDENCE â€” report_done needs verify:PASS or cli:exit-0, else report_fail with tail. NO-PHONE â€” never offer calls; written channel only. SILENCE â€” Raktima: never message, never react, never touch her threads.
 ACTION PROTOCOL - reply with ONLY one JSON object, no prose, from:
 {{"do":"navigate","url":"..."}} {{"do":"text","limit":5000}} {{"do":"click","find":"exact visible text or role"}} {{"do":"type","text":"...","into":"label of box"}} {{"do":"press","key":"Enter"}} {{"do":"scroll","dir":"down|up|top|bottom","amount":700}}
 {{"do":"verify","want":"text that must appear when the mission is truly done"}} {{"do":"wait","seconds":3}} {{"do":"report_done","note":"one line + receipt path"}} {{"do":"report_fail","note":"why + tail"}} {{"do":"report_pending","note":"what Baba must do"}}
 {{"do":"mail","to":"KILO","text":"..."}} {{"do":"idle","reason":"..."}}
-{{"do":"cli","agent":"agy|kilo|omp|crush|codex","task":"full self-contained instruction for a coding agent","cwd":"D:/anonym/...","model":"optional"}} — commands a REAL headless coding agent on Baba's laptop (agy=Gemini via Google, kilo/nemotron-3-ultra-550b for long codegen, omp/crush on b.ai free). Takes up to 15 min. A result starting "cli:exit-0" is accepted PROOF for report_done.
+{{"do":"cli","agent":"agy|kilo|omp|crush|codex","task":"full self-contained instruction for a coding agent","cwd":"D:/anonym/...","model":"optional"}} â€” commands a REAL headless coding agent on Baba's laptop (agy=Gemini via Google, kilo/nemotron-3-ultra-550b for long codegen, omp/crush on b.ai free). Takes up to 15 min. A result starting "cli:exit-0" is accepted PROOF for report_done.
 For click/type the relay finds elements by visible text automatically. To move the page use the scroll action (dir down|up|top|bottom) - press only accepts Enter/Tab/Escape/Backspace/single chars; Down/Up/PageDown get REJECTED by the relay. If an action errors, try a DIFFERENT approach next turn (navigate fresh, scroll, find synonyms). Do your reasoning silently: output ONLY one JSON action object - no markdown fences, no prose before or after it."""
 
 # ------------------------------------------------ MISSIONS (goal cards, not scripts) ------------
@@ -95,7 +95,7 @@ def mission_board():
         })
     ms.append({
         "id": "L1-service-market", "seat": "SEAT-A",
-        "goal": "open https://www.linkedin.com/service-marketplace/provider/requests/ - read each open service request (title, client, budget hints, posted time). For ANY request newer than the last report: mail KILO with 'SERVICE-REQ: <title> | <client> | <age>' via the mail action. NEVER open proposal dialogs or send messages — SON submits on laptop CDP from your mail. If page shows zero requests, report_done note 'premium-lane empty'.",
+        "goal": "open https://www.linkedin.com/service-marketplace/provider/requests/ - read each open service request (title, client, budget hints, posted time). For ANY request newer than the last report: mail KILO with 'SERVICE-REQ: <title> | <client> | <age>' via the mail action. NEVER open proposal dialogs or send messages â€” SON submits on laptop CDP from your mail. If page shows zero requests, report_done note 'premium-lane empty'.",
         "must_prove": "MAIL-SENT|premium-lane empty", "max_steps": 30, "cadence_hours": 8,
     })
     ms.append({
@@ -417,7 +417,7 @@ def pilot_think(seat, mission, transcript):
     if BLUEPRINT:
         sys_p += "\nFATHER'S WORDS BLUEPRINT (read at boot; re-read when stuck; his record outranks invention; full autonomy under it):\n" + BLUEPRINT
     if MEMORY:
-        sys_p += "\nARMY MEMORY — living brief, fresher than training, outranks guessing (decide inside it, never re-ask what it answers):\n" + MEMORY
+        sys_p += "\nARMY MEMORY â€” living brief, fresher than training, outranks guessing (decide inside it, never re-ask what it answers):\n" + MEMORY
     msgs = [{"role": "system", "content": sys_p},
             {"role": "user", "content": "MISSION: " + str(mission.get("goal") or "")[:600] +
              "\nMUST_PROVE: " + str(mission.get("must_prove") or "MAIL-SENT") +
@@ -435,7 +435,7 @@ def pilot_think(seat, mission, transcript):
             act = extract_action(raw)
             if act is not None:
                 return act, "lane:" + lane["lane"] + " " + raw[:120]
-            # v9.2: junk from a live lane must not end the step — cool that lane and try the next
+            # v9.2: junk from a live lane must not end the step â€” cool that lane and try the next
             last_junk = "lane:" + lane["lane"] + " junk:" + str(raw)[:120]
             _rotation[lane["key"] + "!cd"] = now_t + 45
         except urllib.error.HTTPError as e:
@@ -660,3 +660,4 @@ threading.Thread(target=brain_heartbeat, daemon=True).start()
 # Keep main thread alive so kernel stays RUNNING (daemon threads die when main exits)
 while True:
     time.sleep(3600)
+

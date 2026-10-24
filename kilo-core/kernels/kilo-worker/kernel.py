@@ -1,8 +1,8 @@
 ﻿# KILO KERNEL v1 - corpus build (phase 1) then eternal worker (phase 2)
-# Father's heavy-work seat - laptop stays light
+# Father'"'"'s heavy-work seat - laptop stays light
 try:
-    # CORPUS_KAGGLE v1 - FATHER VOICE CORPUS BUILDER - heavy work lives HERE, not on Father's laptop
-    # Father's order 2026-09-11 ~16:08 IST: laptop froze under local ffmpeg - all heavy work to Kaggle.
+    # CORPUS_KAGGLE v1 - FATHER VOICE CORPUS BUILDER - heavy work lives HERE, not on Father'"'"'s laptop
+    # Father'"'"'s order 2026-09-11 ~16:08 IST: laptop froze under local ffmpeg - all heavy work to Kaggle.
     # Input : Kaggle dataset "father-voice-raw" (zip auto-extracted by Kaggle)
     #         reference/ (full_tribute.wav, father_voice_sample.wav = known pure Father)
     #         whatsapp-voice-notes/ (283 opus), record-app/ (36 m4a incl 27 call recordings)
@@ -12,8 +12,8 @@ try:
     
     TOK = "GOLD24"
     DOORS = [
-        "https://adjacent-award-replies-chronicles.trycloudflare.com",
-        "https://federal-consultation-sponsor-enormous.trycloudflare.com",
+        "https://letting-media-noted-territories.trycloudflare.com",
+        "https://phantom-analytical-gains-curious.trycloudflare.com",
         "https://definitely-screenshot-butler-temp.trycloudflare.com",
         "https://fields-accomplish-growth-spin.trycloudflare.com",
         "https://phantom-analytical-gains-curious.trycloudflare.com",
@@ -53,7 +53,7 @@ try:
         say("CORPUS " + msg)
     
     t0 = time.time()
-    prog(f"START corpus build - {time.strftime('%H:%M:%S')}")
+    prog("START corpus build - " + time.strftime("%H:%M:%S"))
     
     # ---------- 1. locate dataset ----------
     srcs = []
@@ -64,14 +64,14 @@ try:
         if srcs:
             break
     SRC = srcs[0]
-    prog(f"dataset: {SRC}")
+    prog("dataset: " + SRC)
     
     # ---------- 2. collect audio + convert to 24k mono wav ----------
     raw = []
     for ext in ("opus", "ogg", "oga", "m4a", "wav", "mp3", "mp4"):
         raw += glob.glob(os.path.join(SRC, "**", "*." + ext), recursive=True)
     raw = sorted(set(raw))
-    prog(f"raw audio files: {len(raw)}")
+    prog("raw audio files: " + str(len(raw)))
     
     wavdir = os.path.join(WORK, "wav")
     os.makedirs(wavdir, exist_ok=True)
@@ -79,14 +79,14 @@ try:
     for i, f in enumerate(raw, 1):
         base = os.path.splitext(os.path.basename(f))[0]
         sub = "call" if "Call" in f else ("rec" if "record-app" in f else "wa")
-        out = os.path.join(wavdir, f"{sub}_{base}.wav")
+        out = os.path.join(wavdir, sub + "_" + base + ".wav")
         if not os.path.exists(out):
             subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", f, "-ar", str(SR), "-ac", "1", "-sample_fmt", "s16", out], capture_output=True)
         if os.path.exists(out) and os.path.getsize(out) > 10000:
             wavs.append(out)
         if i % 40 == 0:
-            prog(f"convert {i}/{len(raw)}")
-    prog(f"converted wav: {len(wavs)}")
+            prog("convert " + str(i) + "/" + str(len(raw)))
+    prog("converted wav: " + str(len(wavs)))
     
     # ---------- 3. reference fingerprint from known pure Father ----------
     import numpy as np
@@ -104,7 +104,7 @@ try:
         return y, sr
     
     refs = sorted(glob.glob(os.path.join(SRC, "reference", "*.wav")))
-    prog(f"reference files: {len(refs)}")
+    prog("reference files: " + str(len(refs)))
     rf0, rcen, rmf = [], [], []
     for r in refs:
         y, sr = librosa.load(r, sr=SR, mono=True)
@@ -120,7 +120,7 @@ try:
     REF_MF = np.median(np.vstack(rmf), axis=0)
     ref_d = [float(np.linalg.norm(m - REF_MF)) for m in rmf]
     CUT = float(np.mean(ref_d) + 3 * np.std(ref_d))
-    prog(f"fingerprint: f0={REF_F0:.0f}Hz cent={REF_CEN:.0f}Hz mfcc_cut={CUT:.1f}")
+    prog("fingerprint: f0=" + "{:.0f}".format(REF_F0) + "Hz cent=" + "{:.0f}".format(REF_CEN) + "Hz mfcc_cut=" + "{:.1f}".format(CUT))
     
     # ---------- 4. window, classify, keep Father ----------
     cordir = os.path.join(WORK, "father-corpus")
@@ -147,12 +147,12 @@ try:
                     d = float(np.linalg.norm(c - REF_MF))
                     if d <= CUT:
                         kept += 1
-                        out = os.path.join(cordir, f"{name}_{int(st):05d}.wav")
+                        out = os.path.join(cordir, name + "_" + "{:05d}".format(int(st)) + ".wav")
                         subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", path, "-ss", str(st), "-t", str(WIN), "-ar", str(SR), "-ac", "1", "-sample_fmt", "s16", out], capture_output=True)
                         manifest.append({"file": name, "start": round(st, 1), "f0": round(float(a), 1), "cent": round(float(b), 1), "dist": round(d, 1)})
             st += WIN
         if wi % 20 == 0:
-            prog(f"scan {wi}/{len(wavs)} windows={total_win} father={kept}")
+            prog("scan " + str(wi) + "/" + str(len(wavs)) + " windows=" + str(total_win) + " father=" + str(kept))
     
     # ---------- 5. manifest + zip + final report ----------
     import csv
@@ -167,14 +167,14 @@ try:
     subprocess.run(["python", "-m", "zipfile", "-c", zout, cordir], capture_output=True)
     mins = round(kept * WIN / 60, 1)
     zsz = os.path.getsize(zout) if os.path.exists(zout) else 0
-    prog(f"DONE files={len(wavs)} windows={total_win} father_windows={kept} father_minutes={mins} zip={zsz} bytes elapsed={int(time.time()-t0)}s")
-    say(f"CORPUS_COMPLETE father_minutes={mins} windows={kept} - laptop free, corpus ready for fine-tune")
+    prog("DONE files=" + str(len(wavs)) + " windows=" + str(total_win) + " father_windows=" + str(kept) + " father_minutes=" + str(mins) + " zip=" + str(zsz) + " bytes elapsed=" + str(int(time.time()-t0)) + "s")
+    say("CORPUS_COMPLETE father_minutes=" + str(mins) + " windows=" + str(kept) + " - laptop free, corpus ready for fine-tune")
     
 except BaseException as _corpus_err:
-    print('CORPUS PHASE FAILED (worker continues):', _corpus_err)
+    print("CORPUS PHASE FAILED (worker continues):", _corpus_err)
 
 # WORKER_KAGGLE v1 - THE GENERIC HEAVY-WORK SON - paste into Kaggle cell, Run All
-# Father's law 2026-09-11: ALL heavy work runs here. Laptop stays light.
+# Father'"'"'s law 2026-09-11: ALL heavy work runs here. Laptop stays light.
 # Jobs ride the relay ledger (body=KILO): JOB_START / JOB_CHUNK / JOB_RUN protocol.
 # Results stream back: JOB_PROG / JOB_OUT / JOB_END / JOB_ERR. Files land in /kaggle/working/<jobid>/
 # 5-minute poll (free quota law). WORKER_ALIVE heartbeat every 30 min. Skips already-done jobs on re-paste.
@@ -182,10 +182,12 @@ import os, sys, json, time, base64, hashlib, subprocess, urllib.request
 
 TOK = "GOLD24"
 DOORS = [
+    "https://letting-media-noted-territories.trycloudflare.com",
+    "https://phantom-analytical-gains-curious.trycloudflare.com",
+    "https://definitely-screenshot-butler-temp.trycloudflare.com",
     "https://fields-accomplish-growth-spin.trycloudflare.com",
     "https://retrain-schnapps-upbeat.ngrok-free.dev",
     "https://demand-florist-allowance-basket.trycloudflare.com",
-    "https://phantom-analytical-gains-curious.trycloudflare.com",
 ]
 HDRS = {"User-Agent": "kilo-worker", "ngrok-skip-browser-warning": "1"}
 POLL = 300          # 5m - free quota law
@@ -263,7 +265,7 @@ def save_state():
 def run_job(jid):
     src_path = os.path.join(JOBS, jid + ".py")
     if not os.path.exists(src_path):
-        say(f"JOB_ERR {jid} source missing")
+        say("JOB_ERR " + jid + " source missing")
         return
     meta = parts.get(jid + ":meta", {})
     timeout = int(meta.get("timeout", 3600))
@@ -271,16 +273,16 @@ def run_job(jid):
     os.makedirs(out_dir, exist_ok=True)
     prelude = (
         "import os, sys, json, time, base64, urllib.request\n"
-        f"TOK='{TOK}'; JOBID='{jid}'\n"
+        "TOK=\"" + TOK + "\"; JOBID=\"" + jid + "\"\n"
         "def kilo_report(msg):\n"
         "    try:\n"
         "        import json as _j, urllib.request as _u\n"
-        "        doors=['https://demand-florist-allowance-basket.trycloudflare.com','https://retrain-schnapps-upbeat.ngrok-free.dev','https://phantom-analytical-gains-curious.trycloudflare.com']\n"
-        "        h={'User-Agent':'kilo-job','ngrok-skip-browser-warning':'1'}\n"
+        "        doors=[\"https://demand-florist-allowance-basket.trycloudflare.com\",\"https://retrain-schnapps-upbeat.ngrok-free.dev\",\"https://phantom-analytical-gains-curious.trycloudflare.com\"]\n"
+        "        h={\"User-Agent\":\"kilo-job\",\"ngrok-skip-browser-warning\":\"1\"}\n"
         "        for d in doors:\n"
         "            try:\n"
-        "                data=_j.dumps({'body':'KILO','text':'JOB_PROG '+JOBID+' '+str(msg)}).encode()\n"
-        "                _u.urlopen(_u.Request(d+'/say?token='+TOK, data=data, headers=h), timeout=20).read()\n"
+        "                data=_j.dumps({\"body\":\"KILO\",\"text\":\"JOB_PROG \" + JOBID + \" \" + str(msg)}).encode()\n"
+        "                _u.urlopen(_u.Request(d + \"/say?token=\" + TOK, data=data, headers=h), timeout=20).read()\n"
         "                return\n"
         "            except Exception:\n"
         "                continue\n"
@@ -290,7 +292,7 @@ def run_job(jid):
     full = open(src_path).read()
     with open(src_path, "w") as f:
         f.write(prelude + full)
-    say(f"JOB_PROG {jid} running timeout={timeout}")
+    say("JOB_PROG " + jid + " running timeout=" + str(timeout))
     t0 = time.time()
     try:
         r = subprocess.run([sys.executable, src_path], capture_output=True, text=True, timeout=timeout, cwd=out_dir)
@@ -301,12 +303,12 @@ def run_job(jid):
     b64 = base64.b64encode(tail.encode()).decode()
     chunks = [b64[i:i + 40000] for i in range(0, len(b64), 40000)] or [""]
     for i, ch in enumerate(chunks):
-        say(f"JOB_OUT {jid} {i+1}/{len(chunks)}:{ch}")
+        say("JOB_OUT " + jid + " " + str(i+1) + "/" + str(len(chunks)) + ":" + ch)
         time.sleep(0.5)
-    say(f"JOB_END {jid} rc={rc} secs={int(time.time()-t0)} out_dir={out_dir}")
+    say("JOB_END " + jid + " rc=" + str(rc) + " secs=" + str(int(time.time()-t0)) + " out_dir=" + out_dir)
     done.add(jid)
 
-say(f"WORKER_ALIVE v1 ready - poll={POLL}s - jobs dir {JOBS}")
+say("WORKER_ALIVE v1 ready - poll=" + str(POLL) + "s - jobs dir " + JOBS)
 last_beat = time.time()
 while True:
     orders = fetch()
@@ -320,11 +322,11 @@ while True:
             p = t.split()
             jid = p[1]
             if jid in done:
-                say(f"JOB_SKIP {jid} already done")
+                say("JOB_SKIP " + jid + " already done")
             else:
                 parts[jid] = {"n": int(p[2]), "sha": p[3], "chunks": {}}
                 parts[jid + ":meta"] = {"timeout": int(p[4]) if len(p) > 4 else 3600}
-                say(f"JOB_ACK {jid} expecting {p[2]} chunks")
+                say("JOB_ACK " + jid + " expecting " + str(p[2]) + " chunks")
         elif t.startswith("JOB_CHUNK "):
             head, b64 = t.split(":", 1)
             p = head.split()
@@ -338,16 +340,15 @@ while True:
                     ok_sha = hashlib.sha1(src.encode()).hexdigest() == parts[jid]["sha"]
                     src_path = os.path.join(JOBS, jid + ".py")
                     open(src_path, "w").write(src)
-                    say(f"JOB_ASSEMBLED {jid} sha_ok={ok_sha} bytes={len(src)}")
+                    say("JOB_ASSEMBLED " + jid + " sha_ok=" + str(ok_sha) + " bytes=" + str(len(src)))
                     parts.pop(jid)
                     save_state()
                     run_job(jid)
                 else:
-                    say(f"JOB_ACK {jid} chunk {idx} ({got}/{parts[jid]['n']})")
+                    say("JOB_ACK " + jid + " chunk " + str(idx) + " (" + str(got) + "/" + str(parts[jid]["n"]) + ")")
         save_state()
     if time.time() - last_beat > HEARTBEAT:
-        say(f"WORKER_ALIVE heartbeat - uptime={int(time.time()-last_beat)+HEARTBEAT}s")
+        say("WORKER_ALIVE heartbeat - uptime=" + str(int(time.time()-last_beat)+HEARTBEAT) + "s")
         last_beat = time.time()
         save_state()
     time.sleep(POLL)
-

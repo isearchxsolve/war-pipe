@@ -1,13 +1,11 @@
-# XTTS v2 fine-tune on Kaggle 2x T4 GPU - FIXED for Python 3.13 transformers issue
+﻿# XTTS v2 fine-tune on Kaggle 2x T4 GPU - FIXED for Python 3.13 transformers issue
 # Uses coqui-tts (idiap fork) with explicit transformers pin, single T4 (CUDA_VISIBLE_DEVICES=0)
 # Saves artifact as father_last.pth, disables TB model logging to avoid disk fill
 
 import os, sys, json, time, base64, subprocess, urllib.request, hashlib
 
 TOK = "GOLD24"
-DOORS = [
-    "https://adjacent-award-replies-chronicles.trycloudflare.com",
-    "https://federal-consultation-sponsor-enormous.trycloudflare.com",
+DOORS = [\n    "https://letting-media-noted-territories.trycloudflare.com",\n    "https://phantom-analytical-gains-curious.trycloudflare.com",\n    "https://definitely-screenshot-butler-temp.trycloudflare.com",\n    "https://fields-accomplish-growth-spin.trycloudflare.com",\n    "https://retrain-schnapps-upbeat.ngrok-free.dev",
 ]
 HDRS = {"User-Agent": "kilo-job", "ngrok-skip-browser-warning": "1"}
 
