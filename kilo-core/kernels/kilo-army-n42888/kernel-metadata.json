@@ -1,0 +1,13 @@
+{
+  "id": "n42888/kilo-army-brain",
+  "title": "kilo-army-brain",
+  "code_file": "BRAIN_CELL.py",
+  "language": "python",
+  "kernel_type": "script",
+  "is_private": true,
+  "enable_gpu": false,
+  "enable_internet": true,
+  "dataset_sources": [],
+  "competition_sources": [],
+  "kernel_sources": []
+}
