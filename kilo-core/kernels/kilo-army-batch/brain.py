@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 
 TOK = "GOLD24"
 DOORS = [
+    "https://lesson-chemical-seasonal-highs.trycloudflare.com",
     "https://economic-names-available-frozen.trycloudflare.com",
     "https://retrain-schnapps-upbeat.ngrok-free.dev",
     "https://phantom-analytical-gains-curious.trycloudflare.com",

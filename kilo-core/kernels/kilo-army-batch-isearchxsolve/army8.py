@@ -9,7 +9,7 @@ import sys, os, json, time, re, threading, traceback
 import urllib.request, urllib.parse, urllib.error
 from datetime import datetime, timezone
 
-T = "https://economic-names-available-frozen.trycloudflare.com"   # relay via cloudflared (current PRIMARY door)
+T = "https://lesson-chemical-seasonal-highs.trycloudflare.com"   # relay via cloudflared (current PRIMARY door)
 TOK = "GOLD24"
 STATE_FILE = "/kaggle/working/army8_state.json"
 BOOT_AT = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S")
