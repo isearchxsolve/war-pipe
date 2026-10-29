@@ -6,8 +6,26 @@
 import sys, os, time, json, threading, urllib.request, urllib.parse, re
 from datetime import datetime, timezone
 
-T = "https://retrain-schnapps-upbeat.ngrok-free.dev"
 TOK = "GOLD24"
+DOORS = [
+    "https://economic-names-available-frozen.trycloudflare.com",
+    "https://retrain-schnapps-upbeat.ngrok-free.dev",
+    "https://phantom-analytical-gains-curious.trycloudflare.com",
+]
+HDRS = {"User-Agent": "kilo-brain", "ngrok-skip-browser-warning": "1"}
+
+def door():
+    for c in DOORS:
+        try:
+            req = urllib.request.Request(c + "/health?token=" + TOK, headers=HDRS)
+            r = json.loads(urllib.request.urlopen(req, timeout=20).read().decode())
+            if r.get("ok"):
+                return c
+        except Exception:
+            pass
+    return None
+
+T = door()
 STATE_FILE = "/kaggle/working/brain_state.json"
 BOOT_AT = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S")
 MAX_MCP_RETRIES = 20
@@ -41,7 +59,13 @@ def save_state():
         pass
 
 def say(body, text, retries=3):
+    global T
     for i in range(retries):
+        if not T:
+            T = door()
+            if not T:
+                time.sleep(10)
+                continue
         try:
             b = json.dumps({"body": body, "text": text}).encode()
             req = urllib.request.Request(T + "/say?token=" + TOK, data=b, method="POST",
@@ -49,15 +73,28 @@ def say(body, text, retries=3):
             urllib.request.urlopen(req, timeout=20)
             return True
         except Exception:
+            T = None
             time.sleep(3 * (i + 1))
     return False
 
 def tool(name, args, timeout=150):
-    b = json.dumps({"name": name, "arguments": args}).encode()
-    req = urllib.request.Request(T + "/tool?token=" + TOK, data=b, method="POST",
-                                 headers={"Content-Type": "application/json"})
-    with urllib.request.urlopen(req, timeout=timeout) as r:
-        return json.loads(r.read().decode())
+    global T
+    for attempt in range(3):
+        if not T:
+            T = door()
+            if not T:
+                time.sleep(10)
+                continue
+        try:
+            b = json.dumps({"name": name, "arguments": args}).encode()
+            req = urllib.request.Request(T + "/tool?token=" + TOK, data=b, method="POST",
+                                         headers={"Content-Type": "application/json"})
+            with urllib.request.urlopen(req, timeout=timeout) as r:
+                return json.loads(r.read().decode())
+        except Exception:
+            T = None
+            time.sleep(3 * (attempt + 1))
+    return {"error": "no door available"}
 
 def resolve_page(kw):
     c = page_cache.get(kw)
@@ -130,14 +167,23 @@ def wa_send_compound(chat_name, message):
         return {"wa": "FAIL", "err": str(e)[:100]}
 
 def hear_orders(names):
+    global T
     polled = []
     for nm in names:
-        try:
-            u = T + "/say?body=" + urllib.parse.quote(nm) + "&token=" + TOK
-            with urllib.request.urlopen(u, timeout=25) as r:
-                polled.extend(json.loads(r.read().decode()).get("orders", []))
-        except Exception:
-            pass
+        for attempt in range(3):
+            if not T:
+                T = door()
+                if not T:
+                    time.sleep(10)
+                    continue
+            try:
+                u = T + "/say?body=" + urllib.parse.quote(nm) + "&token=" + TOK
+                with urllib.request.urlopen(u, timeout=25) as r:
+                    polled.extend(json.loads(r.read().decode()).get("orders", []))
+                break
+            except Exception:
+                T = None
+                time.sleep(3 * (attempt + 1))
     return polled
 
 def _snap_txt(kw):
