@@ -6,31 +6,62 @@ from datetime import datetime, timezone
 
 GEN = "v8"
 QNAME = "ARMY-BUILD-2"
-SELF = re.sub(r"\D", "", QNAME.split("-")[-1]) or "1"
-T = "https://fathers-crowd-fraction-vatican.trycloudflare.com"
+SELF = re.sub(r"\D", "", QNAME.split("-")[-1]) or "2"
 TOK = "GOLD24"
-BIN = "/kaggle/working/bin"
-os.makedirs(BIN, exist_ok=True)
-BOOT = time.time()
-MAX_LIFE = 7.5 * 3600
+DOORS = [
+    "https://economic-names-available-frozen.trycloudflare.com",
+    "https://fathers-crowd-fraction-vatican.trycloudflare.com",
+    "https://retrain-schnapps-upbeat.ngrok-free.dev",
+    "https://phantom-analytical-gains-curious.trycloudflare.com",
+]
+HDRS = {"Content-Type": "application/json", "ngrok-skip-browser-warning": "1"}
+
+def door():
+    for c in DOORS:
+        try:
+            req = urllib.request.Request(c + "/health?token=" + TOK, headers=HDRS)
+            r = json.loads(urllib.request.urlopen(req, timeout=20).read().decode())
+            if r.get("ok"):
+                return c
+        except Exception:
+            pass
+    return None
+
+T = door()
 
 def say(text):
+    global T
     for a in range(3):
+        if not T:
+            T = door()
+            if not T:
+                time.sleep(10)
+                continue
         try:
             body = json.dumps({"body": "KILO", "text": text[:1100]}).encode()
-            req = urllib.request.Request(T + "/say?token=" + TOK, data=body, headers={"Content-Type": "application/json"})
+            req = urllib.request.Request(T + "/say?token=" + TOK, data=body, headers=HDRS)
             urllib.request.urlopen(req, timeout=40).read()
             return True
         except Exception:
+            T = None
             time.sleep(12)
     return False
 
 def orders(body):
-    try:
-        u = T + "/say?body=" + urllib.parse.quote(body) + "&limit=30&token=" + TOK
-        return json.loads(urllib.request.urlopen(u, timeout=40).read()).get("orders", [])
-    except Exception:
-        return []
+    global T
+    for attempt in range(3):
+        if not T:
+            T = door()
+            if not T:
+                time.sleep(10)
+                continue
+        try:
+            u = T + "/say?body=" + urllib.parse.quote(body) + "&limit=30&token=" + TOK
+            return json.loads(urllib.request.urlopen(u, timeout=40).read()).get("orders", [])
+        except Exception:
+            T = None
+            time.sleep(12)
+    return []
 
 def kilolines():
     return orders("KILO")
@@ -48,23 +79,32 @@ def run(cmd, cwd=None, tmo=1500, env=None):
         return 3, "builder-run-err " + str(ex)[:200]
 
 def get_pool():
+    global T
     for a in range(30):
-        try:
-            v = json.loads(urllib.request.urlopen(T + "/keys?token=" + TOK, timeout=90).read())["vault"]
-            p = v.get("pool")
-            pool = p if isinstance(p, dict) else json.loads(p)
-            gh = v.get("github")
-            if isinstance(gh, str):
-                gh = gh.strip() or None
-            if isinstance(pool, str):
-                try: pool = json.loads(pool)
-                except Exception: pool = None
-            global GH_TOKEN
-            GH_TOKEN = gh
-            if pool and pool.get("providers"):
-                return pool
-        except Exception:
-            pass
+        for attempt in range(3):
+            if not T:
+                T = door()
+                if not T:
+                    time.sleep(10)
+                    continue
+            try:
+                v = json.loads(urllib.request.urlopen(T + "/keys?token=" + TOK, timeout=90).read())["vault"]
+                p = v.get("pool")
+                pool = p if isinstance(p, dict) else json.loads(p)
+                gh = v.get("github")
+                if isinstance(gh, str):
+                    gh = gh.strip() or None
+                if isinstance(pool, str):
+                    try: pool = json.loads(pool)
+                    except Exception: pool = None
+                global GH_TOKEN
+                GH_TOKEN = gh
+                if pool and pool.get("providers"):
+                    return pool
+            except Exception:
+                T = None
+                time.sleep(12)
+                break
         time.sleep(10)
     return None
 
