@@ -6,7 +6,7 @@
 import sys, os, time, json, threading, urllib.request, urllib.parse, re
 from datetime import datetime, timezone
 
-T = "https://economic-names-available-frozen.trycloudflare.com"
+T = "https://lesson-chemical-seasonal-highs.trycloudflare.com"
 TOK = "GOLD24"
 STATE_FILE = "/kaggle/working/brain_state.json"
 BOOT_AT = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S")
