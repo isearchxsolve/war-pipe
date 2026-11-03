@@ -1,4 +1,4 @@
-﻿# XTTS v2 fine-tune on Kaggle 2x T4 GPU - FIXED for Python 3.13 transformers issue
+# XTTS v2 fine-tune on Kaggle 2x T4 GPU - FIXED for Python 3.13 transformers issue
 # Uses coqui-tts (idiap fork) with explicit transformers pin, single T4 (CUDA_VISIBLE_DEVICES=0)
 # Saves artifact as father_last.pth, disables TB model logging to avoid disk fill
 
@@ -42,11 +42,29 @@ report_prog("GATE PASS: T4 confirmed")
 os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 report_prog(f"CUDA_VISIBLE_DEVICES=0, using GPU: {torch.cuda.get_device_name(0)}")
 
-# Install with pinned transformers to avoid isin_mps_friendly issue on Python 3.13
+# Install with pinned transformers - use pre-installed tokenizers 0.23.1 in Kaggle Python 3.13
 report_prog("Installing pinned transformers==4.44.2, coqui-tts (idiap fork)...")
-subprocess.check_call([sys.executable, "-m", "pip", "install", "-q", "transformers==4.44.2"])
-subprocess.check_call([sys.executable, "-m", "pip", "install", "-q", "accelerate", "peft", "bitsandbytes"])
-subprocess.check_call([sys.executable, "-m", "pip", "install", "-q", "git+https://github.com/idiap/coqui-tts.git"])
+# Verify pre-installed tokenizers is importable
+import importlib.util
+spec = importlib.util.find_spec("tokenizers")
+if spec is None:
+    raise RuntimeError("tokenizers not importable in environment")
+report_prog("tokenizers verified importable (pre-installed)")
+env = os.environ.copy()
+report_prog("Installing transformers without deps...")
+subprocess.check_call([sys.executable, "-m", "pip", "install", "-q", "--no-deps", "transformers==4.44.2"], env=env)
+report_prog("Installing remaining dependencies without deps...")
+subprocess.check_call([sys.executable, "-m", "pip", "install", "-q", "--no-deps", "accelerate", "peft", "bitsandbytes", "numpy"], env=env)
+# Install torch with CUDA 12.1 wheels
+subprocess.check_call([sys.executable, "-m", "pip", "install", "-q", "torch", "torchaudio", "torchvision", "--index-url", "https://download.pytorch.org/whl/cu121"], env=env)
+report_prog("Installing TTS from coqui-ai...")
+subprocess.check_call([sys.executable, "-m", "pip", "install", "-q", "git+https://github.com/coqui-ai/TTS.git"], env=env)
+# Verify TTS installed
+import importlib.util
+spec = importlib.util.find_spec("TTS")
+if spec is None:
+    raise RuntimeError("TTS not importable after install")
+report_prog("TTS verified importable")
 
 # Prepare dataset - father-voice-raw is on Kaggle (84MB: 283 WA + 27 calls + refs)
 # CORPUS_KAGGLE.py builds father-only 5s-window corpus from father-voice-raw
@@ -58,10 +76,11 @@ if not os.path.exists(corpus_path):
         report_prog("Corpus not found, will use demo corpus")
         corpus_path = None
 
-# XTTS fine-tune config
-from coqui_tts.tts.models.xtts import XttsConfig, Xtts
-from coqui_tts.tts.utils.audio import AudioProcessor
-from coqui_tts.trainer import Trainer, TrainerArgs
+# XTTS fine-tune config (imports after installation)
+from TTS.tts.models.xtts import XttsConfig, Xtts
+from TTS.tts.utils.audio import AudioProcessor
+from TTS.trainer import Trainer, TrainerArgs
+report_prog("TTS imports verified")
 
 config = XttsConfig()
 config.load_json("/kaggle/input/xtts_config/config.json") if os.path.exists("/kaggle/input/xtts_config/config.json") else None
@@ -116,3 +135,12 @@ if corpus_path and corpus_path.startswith("/kaggle/working"):
     report_prog("Temp corpus cleaned")
 
 say(f"JOB_END XTTS_FT rc=0 artifact={model_path} FINISHED")
+
+
+
+
+
+
+
+
+
