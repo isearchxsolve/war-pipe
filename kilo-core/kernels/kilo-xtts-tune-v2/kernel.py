@@ -76,11 +76,10 @@ if not os.path.exists(corpus_path):
         report_prog("Corpus not found, will use demo corpus")
         corpus_path = None
 
-# XTTS fine-tune config (imports after installation) - idiap fork uses TTS package
+# XTTS fine-tune config (imports after installation) - idiap fork uses TTS package + coqui-tts-trainer
 from TTS.tts.models.xtts import XttsConfig, Xtts
 from TTS.utils.audio import AudioProcessor
-from TTS.trainer.trainer import Trainer
-from TTS.trainer.trainer_args import TrainerArgs
+from trainer import Trainer, TrainerArgs
 report_prog("TTS imports verified")
 
 config = XttsConfig()
