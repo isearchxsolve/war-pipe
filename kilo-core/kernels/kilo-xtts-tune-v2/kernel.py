@@ -78,8 +78,9 @@ if not os.path.exists(corpus_path):
 
 # XTTS fine-tune config (imports after installation) - idiap fork uses TTS package
 from TTS.tts.models.xtts import XttsConfig, Xtts
-from TTS.tts.utils.audio import AudioProcessor
-from TTS.trainer import Trainer, TrainerArgs
+from TTS.utils.audio import AudioProcessor
+from TTS.trainer.trainer import Trainer
+from TTS.trainer.trainer_args import TrainerArgs
 report_prog("TTS imports verified")
 
 config = XttsConfig()
