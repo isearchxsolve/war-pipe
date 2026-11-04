@@ -79,7 +79,7 @@ if not os.path.exists(corpus_path):
 # XTTS fine-tune config (imports after installation) - idiap fork uses TTS package + coqui-tts-trainer
 from TTS.tts.models.xtts import XttsConfig, Xtts
 from TTS.utils.audio import AudioProcessor
-from trainer import Trainer, TrainerArgs
+from trainer import Trainer, TrainerArgs, TrainerConfig
 report_prog("TTS imports verified")
 
 config = XttsConfig()
@@ -106,15 +106,21 @@ report_prog("Starting XTTS fine-tune...")
 model = Xtts.init_from_config(config)
 
 # Trainer setup
-trainer_args = TrainerArgs(
-    restore_path=None,
-    mixed_precision=config.mixed_precision,
+trainer_args = TrainerArgs()
+trainer_config = TrainerConfig(
     output_path=config.output_path,
+    mixed_precision=config.mixed_precision,
+    epochs=config.epochs,
+    batch_size=config.batch_size,
+    eval_batch_size=config.eval_batch_size,
+    print_step=config.print_step,
+    save_step=config.save_step,
+    log_model_step=False,  # CRITICAL FIX: avoid disk fill from TB log_model_step
 )
 
 trainer = Trainer(
     trainer_args,
-    config,
+    trainer_config,
     output_path=config.output_path,
     model=model,
     train_samples=config.datasets,
