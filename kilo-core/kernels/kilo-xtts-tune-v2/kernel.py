@@ -4,6 +4,10 @@
 
 import os, sys, json, time, base64, subprocess, urllib.request, hashlib
 
+# Force single T4 for XTTS (coqui XTTS trainer refuses 2 visible GPUs) - MUST BE SET BEFORE torch IMPORT
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
+
 TOK = "GOLD24"
 DOORS = [
     "https://economic-names-available-frozen.trycloudflare.com",
@@ -37,9 +41,6 @@ gpus = [torch.cuda.get_device_name(i) for i in range(torch.cuda.device_count())]
 report_prog(f"torch sees {len(gpus)} GPU(s): {gpus}")
 assert any("T4" in g for g in gpus), "HARDWARE GATE FAIL: No T4 GPU"
 report_prog("GATE PASS: T4 confirmed")
-
-# Force single T4 for XTTS (coqui XTTS trainer refuses 2 visible GPUs)
-os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 report_prog(f"CUDA_VISIBLE_DEVICES=0, using GPU: {torch.cuda.get_device_name(0)}")
 
 # Install with pinned transformers - use pre-installed tokenizers 0.23.1 in Kaggle Python 3.13
