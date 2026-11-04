@@ -106,7 +106,7 @@ report_prog("Starting XTTS fine-tune...")
 model = Xtts.init_from_config(config)
 
 # Trainer setup
-trainer_args = TrainerArgs()
+trainer_args = TrainerArgs(gpu=0)
 trainer_config = TrainerConfig(
     output_path=config.output_path,
     mixed_precision=config.mixed_precision,
